@@ -258,6 +258,55 @@ This guide provides specific component recommendations, part numbers, and purcha
 - **Price**: ~$10-15
 - **Source**: Amazon, electronics suppliers
 
+### 10. Programming Hardware (Required for Arduino Pro Mini)
+
+**Since Arduino Pro Mini has no USB connector, you need a programmer:**
+
+**Option A: USB-to-Serial Adapter** ⭐ *Recommended*
+- **SparkFun FTDI Basic Breakout 3.3V** (DEV-09873)
+- **Price**: ~$16-20
+- **Source**: SparkFun, Adafruit, Amazon
+- **Pros**: Most reliable, widely supported, can power Arduino during programming
+
+**Option B: Generic CP2102 USB-to-TTL Adapter**
+- **Search Terms**: "CP2102 USB to TTL 3.3V"
+- **Price**: ~$3-8
+- **Source**: Amazon, eBay, AliExpress
+- **Pros**: Very affordable, works well
+- **Cons**: Quality varies, may need driver installation
+
+**Option C: Arduino Uno as Programmer**
+- **Requirements**: Arduino Uno + jumper wires
+- **Price**: ~$25 (if you don't already have one)
+- **Pros**: Can use existing Arduino hardware
+- **Cons**: More complex setup, requires removing ATmega chip
+
+**CRITICAL**: Must use 3.3V logic levels, NOT 5V! 5V will damage the Arduino Pro Mini.
+
+**Purchase Links:**
+- [SparkFun FTDI Basic](https://www.sparkfun.com/products/9873)
+- [Amazon CP2102 Search](https://amazon.com/s?k=cp2102+usb+ttl+3.3v)
+
+### 11. Permanent Construction Hardware (For Perfboard Build)
+
+**Required for Durable Assembly:**
+- **Half-size perfboard** (2.5" x 3.5") - Adafruit Perma-Proto or equivalent
+- **Soldering iron** (25-40W with fine tip)
+- **Solder** (60/40 rosin core, 0.6-0.8mm)
+- **Flux** (rosin flux paste)
+- **Wire strippers** (22-24 AWG)
+- **Desoldering braid** (for mistakes)
+- **Heat shrink tubing** (2mm, 3mm, 5mm)
+- **Electrolytic capacitors** (100µF, 10µF)
+- **Ceramic capacitor** (0.1µF)
+- **22-24 AWG stranded wire** (multiple colors)
+
+**Estimated Additional Cost**: ~$45-60 for permanent construction
+
+**Purchase Links:**
+- [Adafruit Perma-Proto](https://www.adafruit.com/product/1609)
+- [Amazon Soldering Kit](https://amazon.com/s?k=soldering+iron+kit+electronics)
+
 ## Complete Purchasing Strategy
 
 ### Budget Option (~$50 total)
@@ -269,8 +318,9 @@ This guide provides specific component recommendations, part numbers, and purcha
 - Basic battery holder ($2-4)
 - Generic project box ($5-8)
 - Wire and misc ($10-15)
+- **Programming hardware not included** (add $5-15)
 
-### Recommended Option (~$81 total)
+### Recommended Option (~$100 total)
 - SparkFun Arduino Pro Mini ($10)
 - Genuine DFPlayer Mini ($4-6)
 - Quality emergency stop button ($15-20)
@@ -279,9 +329,11 @@ This guide provides specific component recommendations, part numbers, and purcha
 - Keystone battery holder ($3-5)
 - Hammond enclosure ($8-12)
 - Quality wire and components ($15-20)
+- **SparkFun FTDI programmer ($16-20)**
 
-### Premium Option (~$120 total)
+### Premium Option (~$165 total)
 - All recommended components plus:
+- **Permanent perfboard construction** ($45-60)
 - Custom PCB instead of breadboard/perfboard ($20-30)
 - Premium speaker with better response
 - Metal enclosure with professional finish
