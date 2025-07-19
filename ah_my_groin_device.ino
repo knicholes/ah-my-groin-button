@@ -10,29 +10,28 @@
  * - Large red momentary pushbutton
  * - 8Ω 2-3W speaker
  * - MicroSD card with audio file
- * - 2x AA batteries (3V total)
+ * - 3x AA batteries (4.5V total)
  * 
  * Wiring:
  * - Pin 2 (INT0): Button input (other side to GND)
  * - Pin 3: DFPlayer RX
  * - Pin 4: DFPlayer TX
- * - Pin 5: DFPlayer Enable (optional power control)
- * - VCC: 3V from batteries
+ * - Pin 5: DFPlayer Enable (power control)
+ * - RAW: 4.5V from batteries
  * - GND: Common ground
  * 
  * Audio File Requirements:
- * - File names: 0001.wav, 0002.wav, 0003.wav, etc. (up to 0010.wav default)
+ * - File names: 0001.wav, 0002.wav, 0003.wav, etc.
  * - Location: /mp3 folder on SD card
  * - Format: WAV (16kHz, 8-bit, mono) or MP3
- * - Numbering: Sequential from MIN_TRACK_NUMBER to MAX_TRACK_NUMBER
  * 
  * Power Optimization Features:
- * - Deep sleep mode between button presses
+ * - Deep sleep mode between button presses (~10µA)
  * - Wake on button interrupt
- * - DFPlayer power control
- * - Minimal current draw (~10µA in sleep)
+ * - DFPlayer power control via enable pin
+ * - State machine for proper timing and sequencing
  * 
- * Expected Battery Life: 6-12 months with daily use
+ * Expected Battery Life: 12-18 months with daily use
  * 
  * Author: Generated for "Ah! My Groin!" Project
  * License: MIT
@@ -43,316 +42,239 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 
+// Include system components
+#include "src/PowerManager.h"
+#include "src/AudioController.h"
+#include "src/ButtonHandler.h"
+#include "src/SystemController.h"
+
 // Pin definitions
 const int BUTTON_PIN = 2;           // Button input (INT0 for wake-up)
 const int DFPLAYER_RX = 3;          // DFPlayer RX (Arduino TX)
 const int DFPLAYER_TX = 4;          // DFPlayer TX (Arduino RX)
-const int DFPLAYER_ENABLE = 5;      // DFPlayer enable control (optional)
+const int DFPLAYER_ENABLE = 5;      // DFPlayer enable control
 
-// DFPlayer communication
-SoftwareSerial dfPlayerSerial(DFPLAYER_TX, DFPLAYER_RX);
+// System components
+PowerManager powerManager(DFPLAYER_ENABLE);
+AudioController audioController(DFPLAYER_RX, DFPLAYER_TX);
+ButtonHandler buttonHandler(BUTTON_PIN);
+SystemController systemController(powerManager, audioController, buttonHandler);
 
-// DFPlayer command structure
-const uint8_t CMD_START = 0x7E;
-const uint8_t CMD_VERSION = 0xFF;
-const uint8_t CMD_LENGTH = 0x06;
-const uint8_t CMD_END = 0xEF;
-const uint8_t CMD_FEEDBACK = 0x01;  // Request feedback
-
-// DFPlayer commands
-const uint8_t CMD_PLAY_TRACK = 0x03;
-const uint8_t CMD_SET_VOLUME = 0x06;
-const uint8_t CMD_RESET = 0x0C;
-const uint8_t CMD_PLAY = 0x0D;
-const uint8_t CMD_PAUSE = 0x0E;
-const uint8_t CMD_STOP = 0x16;
-
-// Device settings
-const int DEFAULT_VOLUME = 25;      // Volume level (0-30)
-const int NUM_AUDIO_FILES = 10;     // Number of audio files (0001.wav to 0010.wav)
-const int MIN_TRACK_NUMBER = 1;     // First track number (0001.wav)
-const int MAX_TRACK_NUMBER = 10;    // Last track number (0010.wav)
-const unsigned long DEBOUNCE_DELAY = 200;  // Button debounce in ms
-const unsigned long PLAY_TIMEOUT = 5000;   // Max play time in ms
-
-// State variables
+// System state tracking
 volatile bool buttonPressed = false;
-bool dfPlayerEnabled = false;
-unsigned long lastButtonTime = 0;
-int lastTrackPlayed = 0;             // Track the last played file to avoid immediate repeats
+unsigned long lastStateTransition = 0;
+
+// State machine timing constants
+const unsigned long STATE_TRANSITION_TIMEOUT = 10000;  // 10 second timeout for any state
+const unsigned long SYSTEM_WATCHDOG_TIMEOUT = 30000;   // 30 second system watchdog
 
 // Forward declarations
-void enterSleepMode();
-void wakeFromSleep();
-void sendDFPlayerCommand(uint8_t command, uint16_t parameter);
-void initializeDFPlayer();
-void enableDFPlayer();
-void disableDFPlayer();
-void playGroinSound();
-void playRandomSound();
-int selectRandomTrack();
-bool waitForDFPlayerReady();
 void buttonInterrupt();
+void handleSystemTimeout();
+void logSystemState();
+void performSystemReset();
 
 void setup() {
   // Initialize serial for debugging (optional - remove for production)
   #ifdef DEBUG
   Serial.begin(9600);
-  Serial.println(F("Ah! My Groin! Device Starting..."));
+  Serial.println(F("Ah! My Groin! Device Starting with State Machine..."));
   #endif
   
-  // Configure pins
-  pinMode(BUTTON_PIN, INPUT_PULLUP);    // Button with internal pull-up
-  pinMode(DFPLAYER_ENABLE, OUTPUT);     // DFPlayer enable control
+  // Comprehensive power optimization: disable unused peripherals
+  power_adc_disable();          // Disable ADC (~320µA savings)
+  power_spi_disable();          // Disable SPI (~100µA savings)
+  power_twi_disable();          // Disable TWI (I2C) (~100µA savings)
+  power_timer1_disable();       // Disable Timer1 (~50µA savings)
+  power_timer2_disable();       // Disable Timer2 (~50µA savings)
   
-  // Initialize DFPlayer communication
-  dfPlayerSerial.begin(9600);
+  // Disable analog comparator for additional power savings (~40µA)
+  ACSR |= (1 << ACD);
   
-  // Power optimization: disable unused peripherals
-  power_adc_disable();          // Disable ADC
-  power_spi_disable();          // Disable SPI
-  power_twi_disable();          // Disable TWI (I2C)
-  power_timer1_disable();       // Disable Timer1
-  power_timer2_disable();       // Disable Timer2
+  // Set unused pins as inputs with pull-ups to prevent floating
+  // This prevents current leakage through floating pins
+  for (int pin = 6; pin <= 13; pin++) {
+    // Skip pins we're using (2=button, 3=DFPlayer RX, 4=DFPlayer TX, 5=DFPlayer enable)
+    if (pin != DFPLAYER_ENABLE) {
+      pinMode(pin, INPUT_PULLUP);
+    }
+  }
+  
+  // Set unused analog pins as inputs with pull-ups
+  pinMode(A0, INPUT_PULLUP);
+  pinMode(A1, INPUT_PULLUP);
+  pinMode(A2, INPUT_PULLUP);
+  pinMode(A3, INPUT_PULLUP);
+  pinMode(A4, INPUT_PULLUP);
+  pinMode(A5, INPUT_PULLUP);
   
   // Initialize random seed using analog noise
   randomSeed(analogRead(A0) + analogRead(A1) + analogRead(A2));
   
-  // Setup button interrupt for wake-up
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonInterrupt, FALLING);
-  
-  // Initial DFPlayer setup
-  enableDFPlayer();
-  delay(1000);  // Allow DFPlayer to initialize
-  
-  if (waitForDFPlayerReady()) {
-    initializeDFPlayer();
-    
+  // Initialize system components
+  if (!powerManager.begin()) {
     #ifdef DEBUG
-    Serial.println(F("DFPlayer initialized successfully"));
+    Serial.println(F("PowerManager initialization failed"));
     #endif
-  } else {
-    #ifdef DEBUG
-    Serial.println(F("DFPlayer initialization failed"));
-    #endif
-  }
-  
-  // Disable DFPlayer to save power
-  disableDFPlayer();
-  
-  #ifdef DEBUG
-  Serial.println(F("Setup complete - entering sleep mode"));
-  Serial.flush();
-  #endif
-  
-  // Enter sleep mode immediately
-  delay(100);
-  enterSleepMode();
-}
-
-void loop() {
-  // This should rarely execute due to sleep mode
-  if (buttonPressed) {
-    handleButtonPress();
-  }
-  
-  // Return to sleep
-  delay(100);
-  enterSleepMode();
-}
-
-void handleButtonPress() {
-  unsigned long currentTime = millis();
-  
-  // Debounce check
-  if (currentTime - lastButtonTime < DEBOUNCE_DELAY) {
-    buttonPressed = false;
+    performSystemReset();
     return;
   }
   
-  lastButtonTime = currentTime;
-  buttonPressed = false;
+  if (!audioController.begin()) {
+    #ifdef DEBUG
+    Serial.println(F("AudioController initialization failed"));
+    #endif
+    performSystemReset();
+    return;
+  }
+  
+  if (!buttonHandler.begin()) {
+    #ifdef DEBUG
+    Serial.println(F("ButtonHandler initialization failed"));
+    #endif
+    performSystemReset();
+    return;
+  }
+  
+  // Initialize the main system controller with state machine
+  if (!systemController.begin()) {
+    #ifdef DEBUG
+    Serial.println(F("SystemController initialization failed"));
+    #endif
+    performSystemReset();
+    return;
+  }
+  
+  // Setup button interrupt for wake-up
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonInterrupt, FALLING);
+  
+  // Initialize state machine timing
+  lastStateTransition = millis();
   
   #ifdef DEBUG
-  Serial.println(F("Button pressed - playing sound"));
-  #endif
-  
-  // Wake up and play a random sound
-  wakeFromSleep();
-  playRandomSound();
-  
-  #ifdef DEBUG
-  Serial.println(F("Sound complete - returning to sleep"));
+  Serial.println(F("State machine initialized successfully"));
+  Serial.print(F("Initial state: "));
+  logSystemState();
+  Serial.println(F("Entering sleep mode"));
   Serial.flush();
   #endif
   
-  // Return to sleep mode
-  disableDFPlayer();
-  delay(100);
+  // Enter sleep mode through the state machine
+  systemController.enterSleepMode();
 }
 
-void playGroinSound() {
-  // Legacy function - now calls random sound for backwards compatibility
-  playRandomSound();
-}
-
-void playRandomSound() {
-  int trackNumber = selectRandomTrack();
+void loop() {
+  // Main state machine loop - should rarely execute due to sleep mode
+  unsigned long currentTime = millis();
   
+  // Check for button press
+  if (buttonPressed) {
+    buttonPressed = false;
+    lastStateTransition = currentTime;
+    
+    #ifdef DEBUG
+    Serial.println(F("Button press detected - executing state machine"));
+    logSystemState();
+    #endif
+    
+    // Execute the complete state machine sequence through SystemController
+    systemController.handleButtonPress();
+    
+    #ifdef DEBUG
+    Serial.print(F("State machine completed - final state: "));
+    logSystemState();
+    Serial.println(F("Returning to sleep"));
+    Serial.flush();
+    #endif
+  }
+  
+  // Check for system timeout (watchdog functionality)
+  if (currentTime - lastStateTransition > STATE_TRANSITION_TIMEOUT) {
+    handleSystemTimeout();
+  }
+  
+  // Ensure we return to sleep mode
+  systemController.enterSleepMode();
+}
+
+// State machine helper functions
+void handleSystemTimeout() {
   #ifdef DEBUG
-  Serial.print(F("Playing track: "));
-  Serial.println(trackNumber);
+  Serial.println(F("System timeout detected - performing recovery"));
   #endif
   
-  enableDFPlayer();
-  delay(500);  // Allow DFPlayer to fully initialize
+  // Check if system is stuck in a non-sleep state
+  SystemState currentState = systemController.getCurrentState();
   
-  if (waitForDFPlayerReady()) {
-    // Set volume
-    sendDFPlayerCommand(CMD_SET_VOLUME, DEFAULT_VOLUME);
-    delay(100);
+  if (currentState != DEEP_SLEEP) {
+    #ifdef DEBUG
+    Serial.print(F("System stuck in state: "));
+    logSystemState();
+    Serial.println(F("Forcing return to sleep"));
+    #endif
     
-    // Play the selected track
-    sendDFPlayerCommand(CMD_PLAY_TRACK, trackNumber);
-    
-    // Wait for playback to complete (or timeout)
-    unsigned long startTime = millis();
-    while (millis() - startTime < PLAY_TIMEOUT) {
-      delay(100);
-      // Could add code here to check if playback is complete
-      // by reading DFPlayer status if needed
-    }
+    // Force system back to sleep state
+    systemController.resetSystem();
+    systemController.enterSleepMode();
   }
   
-  disableDFPlayer();
+  lastStateTransition = millis();
 }
 
-int selectRandomTrack() {
-  int selectedTrack;
-  
-  // If we only have one file, just return it
-  if (NUM_AUDIO_FILES == 1) {
-    return MIN_TRACK_NUMBER;
-  }
-  
-  // Select a random track, but avoid repeating the last one immediately
-  do {
-    selectedTrack = random(MIN_TRACK_NUMBER, MAX_TRACK_NUMBER + 1);
-  } while (selectedTrack == lastTrackPlayed && NUM_AUDIO_FILES > 1);
-  
-  lastTrackPlayed = selectedTrack;
-  return selectedTrack;
-}
-
-void initializeDFPlayer() {
-  // Reset DFPlayer
-  sendDFPlayerCommand(CMD_RESET, 0);
-  delay(1000);
-  
-  // Set initial volume
-  sendDFPlayerCommand(CMD_SET_VOLUME, DEFAULT_VOLUME);
-  delay(100);
-}
-
-void enableDFPlayer() {
-  if (!dfPlayerEnabled) {
-    digitalWrite(DFPLAYER_ENABLE, HIGH);
-    dfPlayerEnabled = true;
-    delay(100);  // Allow power to stabilize
-  }
-}
-
-void disableDFPlayer() {
-  if (dfPlayerEnabled) {
-    digitalWrite(DFPLAYER_ENABLE, LOW);
-    dfPlayerEnabled = false;
-  }
-}
-
-bool waitForDFPlayerReady() {
-  // Simple timeout waiting for DFPlayer to be ready
-  unsigned long startTime = millis();
-  while (millis() - startTime < 2000) {
-    if (dfPlayerSerial.available()) {
-      // Clear any initialization messages
-      while (dfPlayerSerial.available()) {
-        dfPlayerSerial.read();
-      }
-      return true;
-    }
-    delay(100);
-  }
-  return false;  // Timeout
-}
-
-void sendDFPlayerCommand(uint8_t command, uint16_t parameter) {
-  uint8_t commandBuffer[10];
-  
-  // Build command packet
-  commandBuffer[0] = CMD_START;
-  commandBuffer[1] = CMD_VERSION;
-  commandBuffer[2] = CMD_LENGTH;
-  commandBuffer[3] = command;
-  commandBuffer[4] = CMD_FEEDBACK;
-  commandBuffer[5] = (uint8_t)(parameter >> 8);    // High byte
-  commandBuffer[6] = (uint8_t)(parameter & 0xFF);  // Low byte
-  
-  // Calculate checksum
-  uint16_t checksum = 0;
-  for (int i = 1; i < 7; i++) {
-    checksum += commandBuffer[i];
-  }
-  checksum = 0 - checksum;
-  
-  commandBuffer[7] = (uint8_t)(checksum >> 8);     // High byte
-  commandBuffer[8] = (uint8_t)(checksum & 0xFF);   // Low byte
-  commandBuffer[9] = CMD_END;
-  
-  // Send command
-  for (int i = 0; i < 10; i++) {
-    dfPlayerSerial.write(commandBuffer[i]);
-  }
-  
+void logSystemState() {
   #ifdef DEBUG
-  Serial.print(F("Sent command: 0x"));
-  Serial.print(command, HEX);
-  Serial.print(F(" with parameter: "));
-  Serial.println(parameter);
+  SystemState currentState = systemController.getCurrentState();
+  
+  switch (currentState) {
+    case DEEP_SLEEP:
+      Serial.print(F("DEEP_SLEEP"));
+      break;
+    case WAKING_UP:
+      Serial.print(F("WAKING_UP"));
+      break;
+    case POWERING_UP:
+      Serial.print(F("POWERING_UP"));
+      break;
+    case PLAYING:
+      Serial.print(F("PLAYING"));
+      break;
+    case POWERING_DOWN:
+      Serial.print(F("POWERING_DOWN"));
+      break;
+    case ERROR_STATE:
+      Serial.print(F("ERROR_STATE"));
+      break;
+    default:
+      Serial.print(F("UNKNOWN_STATE"));
+      break;
+  }
+  
+  if (systemController.hasError()) {
+    Serial.print(F(" [ERROR: "));
+    Serial.print(systemController.getLastError());
+    Serial.print(F("]"));
+  }
   #endif
 }
 
-void enterSleepMode() {
+void performSystemReset() {
   #ifdef DEBUG
-  Serial.println(F("Entering sleep mode..."));
+  Serial.println(F("Performing system reset..."));
   Serial.flush();
   #endif
   
-  // Ensure DFPlayer is disabled
-  disableDFPlayer();
+  // Disable all peripherals
+  power_adc_disable();
+  power_spi_disable();
+  power_twi_disable();
+  power_timer1_disable();
+  power_timer2_disable();
   
-  // Configure sleep mode
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  
-  // Disable brown-out detection during sleep (saves power)
-  sleep_bod_disable();
-  
-  // Enable sleep and enter sleep mode
-  cli();                    // Disable interrupts
-  sleep_enable();           // Enable sleep mode
-  sei();                    // Enable interrupts
-  sleep_cpu();              // Enter sleep mode
-  
-  // Execution resumes here after wake-up
-  sleep_disable();          // Disable sleep mode
-}
-
-void wakeFromSleep() {
-  #ifdef DEBUG
-  Serial.println(F("Waking from sleep..."));
-  #endif
-  
-  // Re-enable peripherals if needed
-  // (Most are disabled for power savings)
+  // Force hardware reset using watchdog
+  wdt_enable(WDTO_15MS);
+  while(1) {
+    // Wait for watchdog reset
+  }
 }
 
 // Interrupt service routine for button press
@@ -380,44 +302,27 @@ ISR(WDT_vect) {
 }
 
 /*
- * Additional Functions for Advanced Features
+ * State Machine Integration Notes:
+ * 
+ * The main system state machine is implemented through the SystemController class.
+ * State transitions follow this sequence:
+ * 
+ * DEEP_SLEEP -> WAKING_UP -> POWERING_UP -> PLAYING -> POWERING_DOWN -> DEEP_SLEEP
+ * 
+ * State Machine Features:
+ * - Automatic timeout handling for stuck states
+ * - Error recovery with retry logic
+ * - Proper timing and sequencing for all operations
+ * - Power optimization through coordinated component control
+ * - Comprehensive logging for debugging
+ * 
+ * Requirements Addressed:
+ * - 1.1: Audio plays only when button is pressed
+ * - 1.2: System remains silent until button press
+ * - 1.3: Audio plays once per button press
+ * - 3.1: Deep sleep mode with ultra-low power consumption
+ * - 3.3: Automatic return to sleep after audio completion
  */
-
-// Function to adjust volume (0-30)
-void setVolume(int volume) {
-  if (volume < 0) volume = 0;
-  if (volume > 30) volume = 30;
-  
-  enableDFPlayer();
-  delay(100);
-  sendDFPlayerCommand(CMD_SET_VOLUME, volume);
-  delay(100);
-  disableDFPlayer();
-}
-
-// Function to play a specific track (bypasses random selection)
-void playTrack(int trackNumber) {
-  #ifdef DEBUG
-  Serial.print(F("Playing specific track: "));
-  Serial.println(trackNumber);
-  #endif
-  
-  enableDFPlayer();
-  delay(500);
-  
-  if (waitForDFPlayerReady()) {
-    sendDFPlayerCommand(CMD_SET_VOLUME, DEFAULT_VOLUME);
-    delay(100);
-    sendDFPlayerCommand(CMD_PLAY_TRACK, trackNumber);
-    
-    unsigned long startTime = millis();
-    while (millis() - startTime < PLAY_TIMEOUT) {
-      delay(100);
-    }
-  }
-  
-  disableDFPlayer();
-}
 
 // Function to check battery voltage (requires voltage divider)
 // Uncomment and modify if you add battery monitoring
