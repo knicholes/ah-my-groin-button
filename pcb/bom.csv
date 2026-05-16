@@ -1,0 +1,26 @@
+Reference,Qty,Value,Footprint,Manufacturer,MfrPart,SourceLink,UnitPriceUSD,Notes
+U1,1,Arduino Pro Mini 3.3V/8MHz,2x PinSocket_1x12_P2.54mm_Vertical,HiLetgo,B07RS911JD,https://www.amazon.com/dp/B07RS911JD,3.33,3-pack ~$9.99; VERIFY CRYSTAL READS 8.000 ON RECEIPT (some units ship with 16MHz crystal which is out of spec at 3.3V)
+U2,1,DFPlayer Mini (MH2024K-24SS clone),2x PinSocket_1x8_P2.54mm_Vertical,WWZMDiB,B0CH2WZT5Q,https://www.amazon.com/dp/B0CH2WZT5Q,2.00,5-pack ~$9.99; bench-test EACH unit before soldering (DOA rate non-trivial); plays .mp3 only (not .wav); needs ~2s between serial commands; SPK1=pin8=positive SPK2=pin6=negative
+Q1,1,AO3401A,SOT-23,Alpha & Omega,AO3401A,https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO3401A/4346787,0.40,P-MOSFET; DFPlayer power gate (high-side switch)
+Q2,1,AO3401A,SOT-23,Alpha & Omega,AO3401A,https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO3401A/4346787,0.40,P-MOSFET; reverse-polarity protection on battery rail
+Q3,1,MMBT3904,SOT-23,onsemi,MMBT3904LT1G,https://www.digikey.com/en/products/detail/onsemi/MMBT3904LT1G/521283,0.10,NPN BJT; level shifter for Q1 gate (3.3V Pro Mini cannot fully turn off Q1 sitting on 4.5V rail)
+R1,1,10k 1% 0805,R_0805_2012Metric,Yageo,RC0805FR-0710KL,Digikey 311-10.0KCRCT-ND,0.02,Q3 base resistor
+R2,1,100k 1% 0805,R_0805_2012Metric,Yageo,RC0805FR-07100KL,Digikey 311-100KCRCT-ND,0.02,Q1 gate pull-up (holds Q1 OFF when Q3 is OFF)
+R4,1,1k 1% 0805,R_0805_2012Metric,Yageo,RC0805FR-071KL,Digikey 311-1.00KCRCT-ND,0.02,Series resistor on DFPlayer RX (belt-and-suspenders)
+C1,1,1000uF 10V electrolytic,CP_Radial_D10.0mm_P5.00mm,Panasonic,EEU-FC1A102,Digikey P10342-ND,1.20,Bulk decoupling at battery input; bumped from 470uF to help damp WWZMDiB clone idle hiss
+C2,1,10uF 10V X5R 0805,C_0805_2012Metric,Murata,GRM21BR61A106KE19L,Digikey 490-3897-1-ND,0.18,Pro Mini RAW decoupling
+C3,1,0.1uF 50V X7R 0805,C_0805_2012Metric,Murata,GRM21BR71H104KA01L,Digikey 490-1633-1-ND,0.10,Pro Mini RAW decoupling (HF)
+C4,1,100uF 10V electrolytic,CP_Radial_D6.3mm_P2.50mm,Panasonic,EEU-FR1A101,Digikey P15348-ND,0.45,DFPlayer VCC bulk
+C5,1,0.1uF 50V X7R 0805,C_0805_2012Metric,Murata,GRM21BR71H104KA01L,Digikey 490-1633-1-ND,0.10,DFPlayer VCC decoupling (HF)
+C6,1,10uF 10V X5R 0805,C_0805_2012Metric,Murata,GRM21BR61A106KE19L,Digikey 490-3897-1-ND,0.18,DFPlayer VCC mid-frequency decoupling
+SW1,1,SPDT slide switch 2.54mm,SW_Slide_1P2T_E-Switch_EG1218,E-Switch,EG1218,Digikey EG1903-ND,1.40,Through-hole; use only common + one throw
+J1,1,Terminal block 2-pos 3.5mm,TerminalBlock_Phoenix_MPT-0,5-2-3.5_1x02_P3.50mm_Horizontal,Phoenix Contact,1725656,Digikey 277-1247-ND,0.55,Battery wires
+J2,1,Terminal block 2-pos 3.5mm,TerminalBlock_Phoenix_MPT-0,5-2-3.5_1x02_P3.50mm_Horizontal,Phoenix Contact,1725656,Digikey 277-1247-ND,0.55,Big red button microswitch wires (4.8mm spades from button: COM + NO; ignore the 6.3mm LED spades)
+J3,1,Terminal block 2-pos 3.5mm,TerminalBlock_Phoenix_MPT-0,5-2-3.5_1x02_P3.50mm_Horizontal,Phoenix Contact,1725656,Digikey 277-1247-ND,0.55,Speaker wires
+H1-H4,4,M3 mounting hole NPTH 3.2mm,MountingHole_3.2mm_M3,,,,,0.00,Non-plated through-holes
+,,,,,,,,
+,,,,,,,,*** Off-board (already purchased by user) ***
+BTN,1,EG STARTS 100mm Big Dome arcade button,external,EG STARTS,B01LZMANZ7,https://www.amazon.com/dp/B01LZMANZ7,18.00,LED is 12V and intentionally NOT driven from this PCB; only microswitch is wired
+BAT,1,3xAA battery holder w/ leads,external,Keystone or generic,2462,Digikey 36-2462-ND,2.20,Wires to J1
+SPK,1,8 ohm 2W speaker,external,,,,3.00,Wires to J3
+SD,1,microSD card 2-32GB FAT32 SanDisk,external,SanDisk,various,,8.00,Place 0001.mp3 (NOT .wav) in root; SanDisk strongly preferred over no-name cards

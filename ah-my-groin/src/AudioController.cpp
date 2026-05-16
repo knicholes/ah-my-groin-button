@@ -222,7 +222,11 @@ bool AudioController::checkPlaybackStatus() {
     // Check for DFPlayer messages
     if (_dfPlayer.available()) {
         uint8_t type = _dfPlayer.readType();
-        int value = _dfPlayer.read();
+        #ifdef DEBUG
+        int value = _dfPlayer.read();  // Moved inside DEBUG
+        #else
+        (void)_dfPlayer.read();  // Discard value when not debugging
+        #endif
         
         #ifdef DEBUG
         Serial.print(F("AudioController: DFPlayer message - Type: "));
@@ -352,9 +356,8 @@ bool AudioController::recoverFromError() {
         logError("Communication validation failed during recovery");
     }
     
-    unsigned long recoveryTime = millis() - recoveryStart;
-    
     #ifdef DEBUG
+    unsigned long recoveryTime = millis() - recoveryStart;  // Moved inside DEBUG
     Serial.print(F("AudioController: Recovery attempt took "));
     Serial.print(recoveryTime);
     Serial.print(F("ms, result: "));
@@ -440,7 +443,7 @@ bool AudioController::checkSDCard() {
         while (millis() - responseStart < 500) {
             if (_dfPlayer.available()) {
                 uint8_t type = _dfPlayer.readType();
-                int value = _dfPlayer.read();
+                (void)_dfPlayer.read(); // Read value but don't use it - cast to void to suppress warning
                 
                 if (type == DFPlayerCardRemoved) {
                     logError("SD card removed");

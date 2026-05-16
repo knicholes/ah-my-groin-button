@@ -75,7 +75,8 @@ void testPowerManagerCompilation() {
 void testSystemControllerIntegration() {
     // Test SystemController with power optimization integration
     PowerManager pm(5, 2);
-    AudioController ac(3, 4);
+    SoftwareSerial ss(3, 4); // Added SoftwareSerial for AudioController
+    AudioController ac(ss);
     ButtonHandler bh(2);
     SystemController sc(pm, ac, bh);
     

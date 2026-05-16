@@ -1,5 +1,12 @@
 # "Ah! My Groin!" Sound Effect Device
 
+> **⚠️ The recommended build is now [v2](v2/README.md).** v2 replaces the
+> DFPlayer Mini + microSD with a DY-SV17F module (onboard flash, no SD card,
+> no SoftwareSerial), keeps the existing Pro Mini, and applies real
+> drop-resistance fixes (soldered modules, JST connectors, 2.0 mm PCB).
+> The v1 docs below describe the original perfboard-era design and remain
+> as a reference. The canonical PCB design now lives in `v2/`.
+
 A hilarious, battery-efficient device that plays the iconic Simpsons sound effect when you press a big red button. Perfect for pranks, office entertainment, or just bringing some classic comedy into your day!
 
 ## 🎯 Project Overview
