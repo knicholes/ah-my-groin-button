@@ -94,7 +94,7 @@ in J1 and that's the system's "after-switch" rail.
 | Ref     | Part                                  | Footprint                                                        |
 | ------- | ------------------------------------- | ---------------------------------------------------------------- |
 | U1      | HiLetgo Pro Mini 3.3 V / 8 MHz module | 2× `PinSocket_1x12_P2.54mm_Vertical` (soldered as TH headers)    |
-| U2      | DY-SV17F audio module                 | DIP-16, 0.1″ pitch, dual rows; needs project-local footprint     |
+| U2      | DY-SV17F audio module                 | DIP-18, 2.5 mm metric pitch, 20.5 mm row pitch (v3); see PINOUTS.md |
 | Q1      | AO3401A P-MOSFET                      | `SOT-23`                                                         |
 | Q3      | AO3401A P-MOSFET (reverse polarity)   | `SOT-23`                                                         |
 | Q4      | MMBT3904 NPN BJT                      | `SOT-23`                                                         |
@@ -111,21 +111,27 @@ in J1 and that's the system's "after-switch" rail.
 | J3      | JST-XH 2-pin (speaker)                | same                                                             |
 | H1–H4   | M3 mounting holes                     | `MountingHole_3.2mm_M3`                                          |
 
-DY-SV17F symbol+footprint: not in stock KiCad libs. Either pull from
-SnapEDA / EasyEDA, or hand-roll: 2 rows of 8 pins, 2.54 mm pitch, rows
-spaced 17.78 mm (700 mil) apart, body ~22 × 22 mm. Pin map:
+DY-SV17F symbol+footprint: not in stock KiCad libs. v3 uses the stock
+`PinHeader_1x09_P2.54mm_Vertical` footprint with per-pad position
+overrides at build time (in `kicad/build_v3.py`) to reach the true
+2.5 mm metric pitch. **2 rows of 9 pins (DIP-18), 2.5 mm pitch within
+each row, 20.5 mm pad-center-to-pad-center between rows, body ≈ 26 × 23
+mm.** Pin map (verified against physical module 2026-05-19):
 
 ```
-       ┌───────────────┐
-   IO0 │ 1          16 │ V33
-   IO1 │ 2          15 │ V5     ← VDFP
-   IO2 │ 3          14 │ GND    ← GND
-   IO3 │ 4          13 │ DACL
-   IO4 │ 5          12 │ BUSY   ← BUSY_IN (D7)
-   IO5 │ 6          11 │ DACR
-   IO6 │ 7          10 │ SPK-   ← J3.2
-   IO7 │ 8           9 │ SPK+   ← J3.1
-       └───────────────┘
+        LEFT side            RIGHT side
+        (top → bottom)       (top → bottom)
+        ┌────────────┐       ┌────────────┐
+    1   │ SPK+       │   1   │ TX  / IO0  │
+    2   │ SPK−       │   2   │ RX  / IO1  │  ← TRIG_OUT (D6)
+    3   │ DACL       │   3   │ IO2        │
+    4   │ DACR       │   4   │ IO3        │
+    5   │ V33        │   5   │ ONE_LINE/IO4│
+    6   │ V5  (VDFP) │   6   │ IO5        │
+    7   │ CON3/BUSY  │   7   │ IO6        │  ← BUSY_IN (D7)
+    8   │ CON2       │   8   │ IO7        │
+    9   │ CON1       │   9   │ GND        │
+        └────────────┘       └────────────┘
 ```
 
 (Pin numbering and orientation: verify against the silkscreen on your

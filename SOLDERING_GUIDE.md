@@ -164,7 +164,24 @@ You will work in twelve numbered steps. Steps 1–6 build the populated PCB star
 
 You will not solder anything until you have read each step's full text once.
 
-## Hardware erratum — DY-SV17F mounting bugs (added 2026-05-19)
+## v2 → v3 status (this guide is for **v3** boards, post-2026-05-20)
+
+The six layout bugs that triggered the original *Hardware erratum* section have all been fixed in v3 (re-spin commit on 2026-05-20). The v3 PCB at `kicad/ahmygroin.kicad_pcb` has correct DY-SV17F footprints (1 × 9 pads, 2.5 mm metric pitch, 20.5 mm row pitch), correct pin assignments, correct CON1/CON2/CON3 routing intent in the netlist, correct Pro Mini RAW/VCC pad positions, J1 / J3 `+`/`−` silkscreen, and a V33 test point. The detailed v3 reference is `PINOUTS.md`.
+
+**If you are building a v2 board** (fabricated from a pre-v3 commit): you need the flying-wire workaround. Recover the original *Hardware erratum* + "Errata-revised" step notes by running:
+
+```
+git show <pre-v3-commit-hash>:SOLDERING_GUIDE.md
+```
+
+(the pre-v3 hash is the parent of the commit titled "v3 PCB re-spin").
+
+**If you are building a v3 board**: follow the original Steps 4, 5, 6, 7, 11.2 below as written, but install **all** module headers (J4, J5, J6, J7) normally. Ignore the "Errata-revised" callouts that remain inline in the step text — they describe the v2 workaround and no longer apply. (TODO for a future pass: strip the inline "Errata-revised" blocks now that v3 is the default. They are harmless to a v3 builder who knows to skip them.)
+
+---
+
+<details>
+<summary>Legacy v2 hardware erratum (kept for reference; v3 does not need it)</summary>
 
 **Mea culpa.** I (Claude) designed this board and wrote the original instructions. While building from the boards, the user found three bugs in the DY-SV17F footprint and routing that I introduced. The original Steps 4, 5, 7, and 11.2 below were written for an *imagined* DY-SV17F pinout that does not match the real module. They are wrong and are superseded by the "Errata-revised" notes inside each affected step.
 
@@ -207,6 +224,8 @@ What can be salvaged:
 | Both unused 1 × 8 male pin headers (originally intended for J6 and J7) | **Trash, or save for another project.** | Two headers don't get used in this build. |
 
 Net summary: **two PCB-side headers get thrown out (both 1 × 8 strips for J6 and J7), and ten flying wires are added between the module and the PCB.** Everything else stays. The DY-SV17F is mounted off-PCB — hot-glued to the case wall or to a small piece of perfboard — and every signal it needs runs as a discrete wire from the module's pin-tip to a routed hole on the PCB.
+
+</details>
 
 ## Concrete Steps
 

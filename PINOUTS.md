@@ -67,7 +67,7 @@ The FTDI header is **not** wired to the PCB in any version — the Pro Mini is m
 
 ## U2 — DY-SV17F audio module (Amazon B0BPSPPW52, 2-pack)
 
-**Form factor:** Two parallel 1 × 9 long-edge solder pads on 0.1″ (2.54 mm) pitch. DIP-18 outline. Long-edge row spacing **needs measurement on the physical module — it is NOT 0.7″ / 17.78 mm (that's DFPlayer Mini geometry). Likely 0.6″ / 15.24 mm.** Re-verify with calipers before laying out v3.
+**Form factor:** Two parallel 1 × 9 long-edge solder pads on **2.5 mm metric pitch** (not 2.54 mm/0.1″). DIP-18 outline. Long-edge row spacing **20.5 mm** pad-center to pad-center. Outer board ≈ 26 × 23 mm (user-calipered 2026-05-20: 26.3 × 23.08 mm).
 
 **Orientation convention:** "top" = the end of the module nearest the USB/microSD/SPK terminals (refer to the silkscreen "DY-SV17F" text orientation; pin 1 is at top-left when the text is upright). "Left" and "right" are as seen looking down at the component side.
 
@@ -119,21 +119,33 @@ USB-side pads on the module: separate from the long-edge pins, on the short edge
 
 ---
 
-## v2 PCB errata (what the re-spin must fix)
+## v2 → v3 design changes (all FIXED in v3 by `kicad/build_v3.py`, 2026-05-20)
 
-For full context see `SOLDERING_GUIDE.md` → *Hardware erratum* section. Summary of what v3 must change:
+The v2 PCB had six layout bugs that prompted the v3 re-spin. All structural fixes are now in `kicad/ahmygroin.kicad_pcb`:
 
-1. **DY-SV17F footprint:** change from 2 × 8 / 0.7″ to **2 × 9 / 0.6″** (or whatever calipers reveal as the actual DY-SV17F row pitch). Pad assignments per the table above. Place the silkscreen pin-1 marker at the `SPK+` corner.
-2. **DY-SV17F net routing:** route `/SPK_P`, `/SPK_N`, `/V33`, `/VDFP`, `/BUSY_IN`, `/CON1`, `/CON2`, `/CON3`, `/GND`, and `/TRIG_OUT` per the U2 tables above. The current v2 J7 routing is fabricated against a fictitious pinout and must be discarded entirely.
-3. **CON1/CON2/CON3 traces:** in v2, the CON nets exist only at the J8/J9/J10 jumper middle pins. In v3, run those traces all the way to U2 pins 9, 8, 7 respectively.
-4. **Pro Mini J5 power pins (bug #5):** route `/VSYS` to U1 right-edge **pin 1** (`RAW`) and `/V33` to U1 right-edge **pin 4** (`VCC`). In v2, I put them at the *bottom* of the right edge (pins 11 and 12 — the `D11` and `D10` positions), which both fails to power the Pro Mini and damages two digital pins.
-5. **C4 placement:** in v2, C4 is at (60, 14) — directly under the DY-SV17F module footprint. Move it to a free area of the board so the 7 mm-tall electrolytic doesn't collide with the module body.
-6. **Test points:** keep the named test points (`VSYS`, `VDFP`, `PFET_GATE`, `BUSY_IN`, `GND`) per `v2/README.md` §5. Add a `V33` test point too — the v33 rail is now consequential after the mode-jumper redesign.
+1. **DY-SV17F footprint:** changed from 2 × 8 / 17.78 mm to **2 × 9 / 20.5 mm row pitch / 2.5 mm pin pitch**. (Stock library has only 2.54 mm pitch; `kicad/build_v3.py` overrides each pad position to the true 2.5 mm metric at build time.) Pad assignments per the U2 tables above.
+2. **DY-SV17F net routing:** J6 (left side) carries `/SPK_P`, `/SPK_N`, `/V33`, `/VDFP`, `/BUSY_IN`, `/CON1`, `/CON2`; J7 (right side) carries `/TRIG_OUT` and `/GND`. Old fabricated J7 assignments (`/VDFP` on pad 2, etc.) are discarded.
+3. **CON1/CON2/CON3 traces:** in v3 the schematic netlist connects J8/J9/J10 middle pins to the J6 footprint pads 9, 8, 7 (these connections were missing entirely in v2). Trace routing is left to the autorouter — see "Routing" below.
+4. **Pro Mini J5 power pins:** `/VSYS` now lives on J5 pad 1 (RAW) and `/V33` on J5 pad 4 (VCC). Old pad 11/12 assignments (D10/D11) are cleared.
+5. **C4 placement:** moved from (60, 14) to (50, 40) — south of the DY-SV17F footprint, clear of the module body.
+6. **J1 / J3 polarity silkscreen:** `+`/`−` text labels added next to pad 1 and pad 2 on the battery (J1) and speaker (J3) JST-XH connectors.
+
+Plus: **TP1** test point added on the `/V33` net (between C2 and Q1, labeled "V33" on the silkscreen).
+
+## v3 routing (TBD before fabrication)
+
+`build_v3.py` produces an **unrouted** PCB — footprints, pad-net assignments, board outline, GND zones, and silkscreen are in place but no copper traces have been laid down yet. The v2 routing in `layout_pipeline.py` cannot be reused because v3 placements (J7 at x = 75.5, C4 south, C5/C6 west of J7) differ. Before fabricating:
+
+1. Open `kicad/ahmygroin.kicad_pcb` in the KiCad GUI.
+2. Run the autorouter (Freerouting via DSN export, or KiCad 10's built-in) — or hand-route. ~14 nets total to wire: VBATT, VSYS, V33, VDFP, GND, SPK_P, SPK_N, TRIG_OUT, BUSY_IN, GATE_CTRL, BTN_IN, Q1_GATE, Q4_BASE, CON1, CON2.
+3. Refill zones (press `B` in pcbnew).
+4. Re-run DRC; it must come back clean.
+5. Print the board at 1:1 and physically lay the DY-SV17F and Pro Mini on the paper to confirm pin alignment.
 
 ## Suggested v3 verification before fab
 
-- ERC + DRC pass in KiCad.
-- 3D viewer: visually confirm U1 right-edge `RAW` and `VCC` silkscreen labels line up over the routed pads. (This would have caught bug #5.)
+- ERC + DRC pass in KiCad (currently DRC reports 0 violations on the unrouted board; will report unconnected items until routing is done).
+- 3D viewer: visually confirm U1 right-edge `RAW` and `VCC` silkscreen labels line up over the routed pads.
 - 3D viewer: confirm U2's actual STEP model (download a real DY-SV17F STEP file from a community library, not the DFPlayer Mini stand-in) fits the footprint without overlapping C4 or any 0805.
 - Print the board layout at 1:1 scale and physically lay your DY-SV17F and Pro Mini on the paper to confirm pin alignment before sending Gerbers. **This is the cheapest catch for any further footprint bugs.**
 
@@ -141,4 +153,5 @@ For full context see `SOLDERING_GUIDE.md` → *Hardware erratum* section. Summar
 
 ## Revision history
 
+* **2026-05-20 — v3 re-spin.** All six v2 bugs corrected via `kicad/build_v3.py`. Footprint pitch 2.5 mm metric (was 2.54 mm imperial); row pitch 20.5 mm (was 17.78 mm). User Kelly calipered the physical DY-SV17F: 26.3 × 23.08 mm outer. Routing left for the GUI autorouter. — Claude.
 * 2026-05-19 — Initial file. Created after user Kelly identified five Claude-introduced bugs in the v2 PCB during build of the first board. Pinouts verified against physical HiLetgo Pro Mini (B07RS911JD) and DY-SV17F (B0BPSPPW52) modules by Kelly. — Claude (with Kelly).
