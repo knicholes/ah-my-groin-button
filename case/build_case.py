@@ -8,13 +8,19 @@ Outputs:
     case.blend      — the editable model
     body.stl        — main case body (top + sides, open at bottom)
     bottom.stl      — removable bottom tray (carries PCB, speaker, battery)
+    foot.stl        — single foot puck; print 4× (one per corner)
 
 ASSEMBLY:
   Bottom tray is a "shelf" inside the case with PCB standoffs, speaker
   mounting bosses and battery clips integrated. Slide everything (PCB,
   speaker, battery) onto the tray, connect the three JST cables, drop
-  the tray UP into the case from below, and fasten with 4 M3 screws
-  into heat-set inserts in the four corner blocks.
+  the tray UP into the case from below, stack a printed foot under each
+  corner, and fasten with 4 M3 screws that pass foot → tray → heat-set
+  insert in the corner block.
+
+  The feet print as separate pucks (countersink facing UP on the build
+  plate, flat side down) so no support material is needed under the
+  tray's corners.
 
 GEOMETRY:
     PCB                90 × 70 × 2.0 mm + ~20 mm component height
@@ -36,7 +42,13 @@ import bmesh
 # ---------------------------------------------------------------------
 # Dimensions (mm — internal Blender units)
 # ---------------------------------------------------------------------
-W, D, H        = 200.0, 130.0, 90.0    # outer case dimensions
+W, D, H        = 200.0, 130.0, 110.0   # outer case dimensions
+# H raised from 90 → 110 to clear the microswitch hanging below the
+# arcade button. Total button+microswitch length is 92 mm from dome tip
+# to switch terminals; dome sits 26.7 mm above the top panel → 65.3 mm
+# hangs below. Speaker stack (tray 3.5 + boss 6 + speaker 25.5) = 35 mm,
+# so internal headroom needed is 65.3 + 35 ≈ 100 mm, plus 3.5 mm top
+# panel and ~6 mm safety = 110 mm.
 WALL           = 3.5                    # side wall thickness
 CORNER_R       = 5.0                    # outer corner radius
 TOP_TH         = 3.5                    # top panel thickness
@@ -53,10 +65,11 @@ COUNTERSINK_D  = 6.5                    # M3 countersink head diameter
 COUNTERSINK_H  = 1.8                    # countersink depth
 
 # Feet — lift the case off the resting surface so the downward-firing
-# speaker isn't muffled. Concentric with the corner screws so a single
-# longer M3 still passes through the foot, tray, and into the heat-set
-# insert in the corner block above. With FOOT_H=8 the required screw
-# length is FOOT_H + BOT_TH + CORNER_BLOCK_H = 23.5 mm → use M3×25.
+# speaker isn't muffled. Printed as SEPARATE pucks (flat side on build
+# plate, countersink facing up) so no support material is wasted under
+# the tray. A single M3 passes through foot → tray → heat-set insert in
+# the corner block above. With FOOT_H=8 the required screw length is
+# FOOT_H + BOT_TH + CORNER_BLOCK_H = 23.5 mm → use M3×25.
 FOOT_OD        = 14.0
 FOOT_H         = 8.0
 
@@ -67,6 +80,13 @@ BTN_BODY_D     = 78.0                   # body diameter below panel
 BTN_BODY_LEN   = 50.0                   # how far the body hangs below
 BTN_REINF_R    = 50.0                   # reinforcement ring outer radius
 BTN_REINF_TH   = 6.0                    # reinforced zone thickness
+# Anti-rotation nubs on the button body: two half-circle bumps directly
+# opposite each other across the button's diameter. Each is 5.73 mm wide
+# (chord, against the button surface) and protrudes 2.7 mm radially.
+# Cut matching slots into the mounting hole so the button can't spin and
+# tangle the wires below.
+BTN_NUB_W      = 5.73                   # chord width of nub at button surface
+BTN_NUB_PROT   = 2.7                    # how far nub sticks out radially
 
 # PCB — right half, on standoffs from the tray
 PCB_CX, PCB_CY = 145.0, 65.0
@@ -87,7 +107,11 @@ SPK_GRILLE_RINGS = [
     (20,  12,  5.5),
     (30,  18,  5.0),
 ]
-SPK_MOUNT_R    = 36.0                   # bolt circle radius (72 mm diag)
+# Measured on physical speaker: adjacent hole centres are 58.9 mm apart
+# (outer-edge to outer-edge 63.66 mm, inner-edge to inner-edge 54.13–54.2 mm,
+# so c-to-c = (63.66 + 54.17) / 2 ≈ 58.9 mm, hole dia ≈ 4.75 mm).
+# Bolt-circle radius = 58.9 / √2 ≈ 41.65 mm.
+SPK_MOUNT_R    = 41.65                  # bolt circle radius (58.9 mm side)
 SPK_MOUNT_BOSS_OD = 6.0
 SPK_MOUNT_BOSS_ID = 2.7
 SPK_MOUNT_BOSS_H  = 6.0
@@ -198,6 +222,20 @@ def build_body():
                        BTN_CX, BTN_CY, H - TOP_TH/2)
     boolean(outer, btn_hole)
 
+    # Anti-rotation slots — two half-circle cutouts on opposite sides of
+    # the button hole (along ±X) that the button's plastic nubs slot into.
+    # Offset the cutter circle so its near edge sits flush with the hole
+    # edge and its far edge protrudes BTN_NUB_PROT outward.
+    nub_r      = BTN_NUB_W / 2
+    nub_offset = BTN_HOLE_D/2 + BTN_NUB_PROT - nub_r
+    # Cut deep enough to clear top panel + reinforcement ring (with margin).
+    nub_depth  = TOP_TH + BTN_REINF_TH + 4.0
+    nub_cz     = H - nub_depth/2 + 0.05
+    for sign in (-1, 1):
+        nub = add_cyl(f"btn_nub_slot_{sign}", nub_r, nub_depth,
+                      BTN_CX + sign * nub_offset, BTN_CY, nub_cz)
+        boolean(outer, nub)
+
     # Reinforcement ring around the button hole (extra thickness downward).
     ring = add_cyl("btn_reinf", BTN_REINF_R, BTN_REINF_TH,
                    BTN_CX, BTN_CY, H - BTN_REINF_TH/2)
@@ -239,29 +277,15 @@ def build_tray():
     tray = add_cube("tray_plate", tray_x, tray_y, BOT_TH,
                     W/2, D/2, BOT_TH/2)
 
-    # Feet first — add them as UNION cylinders projecting downward from
-    # each tray corner, so the screw clearance and countersink booleans
-    # below punch through both the tray plate AND the foot in one go.
+    # Plain screw clearance holes through each corner of the tray. The
+    # feet print separately and the countersink lives in the foot, so the
+    # tray's underside stays flat (no support material needed).
+    clr_depth = BOT_TH + 2.0
     for cx, cy in corner_positions():
-        foot = add_cyl(f"foot_{cx:.0f}_{cy:.0f}",
-                       FOOT_OD/2, FOOT_H,
-                       cx, cy, -FOOT_H/2)
-        boolean(tray, foot, op='UNION')
-
-    # Four screw clearance holes + countersinks. The clearance bore now
-    # spans the full foot+tray thickness; the countersink sits at the
-    # foot's bottom face so the screw head finishes flush with the floor.
-    clr_depth = BOT_TH + FOOT_H + 4.0
-    clr_cz    = (BOT_TH - FOOT_H) / 2.0
-    for cx, cy in corner_positions():
-        clr = add_cyl(f"clr_{cx:.0f}", SCREW_CLEAR_D/2, clr_depth,
-                      cx, cy, clr_cz)
+        clr = add_cyl(f"clr_{cx:.0f}_{cy:.0f}",
+                      SCREW_CLEAR_D/2, clr_depth,
+                      cx, cy, BOT_TH/2)
         boolean(tray, clr)
-        # Countersink (cone with big end DOWN at the foot's bottom face).
-        csk = add_cone(f"csk_{cx:.0f}",
-                       COUNTERSINK_D/2, SCREW_CLEAR_D/2,
-                       COUNTERSINK_H, cx, cy, -FOOT_H + COUNTERSINK_H/2)
-        boolean(tray, csk)
 
     # Speaker grille — concentric rings of round holes (speaker-mesh look).
     # Each hole is a separate cylindrical cut through the tray; the
@@ -330,16 +354,46 @@ def build_tray():
     return tray
 
 # ---------------------------------------------------------------------
+# FOOT (single puck; print 4×)
+# ---------------------------------------------------------------------
+def build_foot():
+    """One foot puck. Printed flat-side-down with the countersink facing
+    UP on the build plate, so no support is needed. At assembly, flip it
+    over: countersink ends up on the floor, screw head sits flush, screw
+    passes up through foot → tray → corner block heat-set insert.
+    """
+    # Position the foot off to the side of the body/tray so the export
+    # selection picks up only the foot. Coordinates are arbitrary.
+    fx, fy, fz = -50.0, 0.0, FOOT_H/2
+    foot = add_cyl("foot_puck", FOOT_OD/2, FOOT_H, fx, fy, fz)
+
+    # Clearance hole all the way through.
+    clr = add_cyl("foot_clr", SCREW_CLEAR_D/2, FOOT_H + 2.0, fx, fy, fz)
+    boolean(foot, clr)
+
+    # Countersink at the BOTTOM face (so the screw head finishes flush
+    # with the floor once the foot is flipped during assembly). Cone has
+    # the big end at z=0 (floor) tapering up.
+    csk = add_cone("foot_csk",
+                   COUNTERSINK_D/2, SCREW_CLEAR_D/2,
+                   COUNTERSINK_H, fx, fy, COUNTERSINK_H/2)
+    boolean(foot, csk)
+
+    foot.name = "case_foot"
+    return foot
+
+# ---------------------------------------------------------------------
 def main():
     clear_scene()
     body = build_body()
     tray = build_tray()
+    foot = build_foot()
 
     out_dir = Path(r"I:\code\ah-my-groin-button\case")
     out_dir.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(out_dir / "case.blend"))
 
-    for obj, fname in [(body, "body.stl"), (tray, "bottom.stl")]:
+    for obj, fname in [(body, "body.stl"), (tray, "bottom.stl"), (foot, "foot.stl")]:
         bpy.ops.object.select_all(action='DESELECT')
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
@@ -354,7 +408,8 @@ def main():
         print(f"exported {fname}")
 
     print(f"BUILT: body {len(body.data.vertices)} verts, "
-          f"tray {len(tray.data.vertices)} verts")
+          f"tray {len(tray.data.vertices)} verts, "
+          f"foot {len(foot.data.vertices)} verts")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,7 @@
+# PlatformIO build artifacts
+v2/firmware/.pio/
+
+# KiCad lock files and temp exports
+**/*.lck
+**/~*.kicad_*.lck
+kicad/*-temp_view.svg

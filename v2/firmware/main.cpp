@@ -1,110 +1,24 @@
-/*
- * Ah! My Groin! v2 — button-triggered DY-SV17F audio playback
- *
- * On button press: wake from deep sleep, power up the DY-SV17F via
- * high-side P-MOSFET, pulse the IO1 trigger pin, wait for BUSY to
- * indicate playback has finished, power down DY-SV17F, sleep.
- *
- * No SoftwareSerial, no DFPlayer library. The DY-SV17F is configured
- * for IO trigger mode via its CON1/CON2/CON3 pins (set on the PCB).
- * Pulse IO1 LOW for ~20 ms to play track 001.
- *
- * Hardware:
- *  - HiLetgo Pro Mini 3.3V/8MHz (verify 8.000 MHz crystal!)
- *  - DY-SV17F audio module
- *  - EG STARTS arcade button microswitch on D2 (INT0)
- *
- * Pin map:
- *  D2  INPUT_PULLUP  Button (FALLING-edge interrupt for wake)
- *  D5  OUTPUT        DY-SV17F power-gate (HIGH = powered)
- *  D6  OUTPUT        DY-SV17F IO1 trigger (LOW pulse = play track 001)
- *  D7  INPUT_PULLUP  DY-SV17F BUSY (LOW = playing, HIGH = idle)
- */
+// DIAGNOSTIC FIRMWARE — TEMPORARY (real firmware in main.cpp.bak)
+//
+// Holds D5 HIGH continuously to force the DY-SV17F power chain ON.
+// No button, no sleep, no timeout. Stay this way until reflashed.
+//
+// Measure (DC volts, black probe on GND):
+//   J4 pad 8     (D5/GATE_CTRL)   should be ~3.3 V
+//   Q4 collector (Q1_GATE)        should be ~0 V    (Q4 saturated -> pulls Q1 gate down)
+//   Q1 drain     (VDFP test pt)   should be ~4.5 V  (Q1 ON, full battery voltage)
+//   DY-SV17F V5  (left pin 6)     should be ~4.5 V  (via the flying wire)
+//
+// If D5 = 3.3V but Q4 collector NOT 0V  -> Q4 dead or bad solder joint
+// If Q4 collector = 0V but Q1 drain NOT 4.5V  -> Q1 dead (likely smoke #2 victim)
+// If Q1 drain = 4.5V but DY-SV17F V5 NOT 4.5V  -> V5 flying wire broken
+// If everything reads correctly but module LED still dark  -> DY-SV17F dead
 
 #include <Arduino.h>
-#include <avr/sleep.h>
-#include <avr/power.h>
-
-#define BTN_PIN   2
-#define GATE_PIN  5
-#define TRIG_PIN  6
-#define BUSY_PIN  7
-
-#define BOOT_MS         50    // DY-SV17F power-up settle time
-#define TRIG_PULSE_MS   20    // IO1 LOW pulse width
-#define BUSY_TIMEOUT_MS 200   // wait this long for BUSY to go LOW
-#define POST_PLAY_MS    50    // hold power on briefly after BUSY rises
-
-volatile bool buttonPressed = false;
-volatile unsigned long lastButtonTime = 0;
-
-void buttonISR() {
-    unsigned long now = millis();
-    if (now - lastButtonTime > 200 && digitalRead(BTN_PIN) == LOW) {
-        buttonPressed = true;
-        lastButtonTime = now;
-    }
-}
-
-void enterDeepSleep() {
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-    sleep_enable();
-    attachInterrupt(digitalPinToInterrupt(BTN_PIN), buttonISR, FALLING);
-    sleep_cpu();
-    // execution resumes here on wake
-    sleep_disable();
-    detachInterrupt(digitalPinToInterrupt(BTN_PIN));
-}
-
-void playAudio() {
-    digitalWrite(GATE_PIN, HIGH);
-    delay(BOOT_MS);
-
-    digitalWrite(TRIG_PIN, LOW);
-    delay(TRIG_PULSE_MS);
-    digitalWrite(TRIG_PIN, HIGH);
-
-    unsigned long t0 = millis();
-    while (digitalRead(BUSY_PIN) == HIGH && (millis() - t0) < BUSY_TIMEOUT_MS) {
-        delay(2);
-    }
-    while (digitalRead(BUSY_PIN) == LOW) {
-        delay(10);
-    }
-
-    delay(POST_PLAY_MS);
-    digitalWrite(GATE_PIN, LOW);
-}
 
 void setup() {
-    pinMode(BTN_PIN, INPUT_PULLUP);
-    pinMode(GATE_PIN, OUTPUT);
-    pinMode(TRIG_PIN, OUTPUT);
-    pinMode(BUSY_PIN, INPUT_PULLUP);
-
-    digitalWrite(GATE_PIN, LOW);
-    digitalWrite(TRIG_PIN, HIGH);
-
-    power_adc_disable();
-    power_spi_disable();
-    power_twi_disable();
-    power_timer1_disable();
-    power_timer2_disable();
-
-    for (int pin = 8; pin <= 13; pin++) pinMode(pin, INPUT_PULLUP);
-    for (int pin = A0; pin <= A5; pin++) pinMode(pin, INPUT_PULLUP);
-    ACSR |= (1 << ACD);
-
-    enterDeepSleep();
+    pinMode(5, OUTPUT);
+    digitalWrite(5, HIGH);
 }
 
-void loop() {
-    if (buttonPressed) {
-        buttonPressed = false;
-        delay(50);
-        if (digitalRead(BTN_PIN) == LOW) {
-            playAudio();
-        }
-        enterDeepSleep();
-    }
-}
+void loop() {}
