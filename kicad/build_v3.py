@@ -12,6 +12,17 @@ Fixes the six Claude-introduced layout bugs (see PINOUTS.md):
 
 Plus: V33 test point (TP1), C4 relocated out from under U2.
 
+v3.1 fixes (2026-06-07, post-bring-up):
+
+  7. /TRIG_OUT moved from J7 pad 2 (IO1) to J7 pad 1 (IO0). In
+     I/O Independent Mode 0, IO0 plays 00001.mp3; IO1 plays 00002.mp3.
+  8. /CON3 net folded into /BUSY_IN. The module's CON3/BUSY is one pin
+     (J6 pad 7); v3 had J10 pad 2 on a separate /CON3 net that didn't
+     reach the module. Now J10 pad 2 is on /BUSY_IN, same net as J6 p7.
+  9. R3 added: 10 kΩ 0805 pull-down from /BUSY_IN to /GND, so the chip
+     samples CON3=LOW during boot for Independent Mode 0, while the
+     module's push-pull BUSY output can still drive HIGH afterward.
+
 Pipeline:
   1. Mutate kicad/ahmygroin.net (sexpdata: footprints, pad-nets, TP1).
   2. Build a fresh kicad/ahmygroin.kicad_pcb from the updated netlist
@@ -59,6 +70,7 @@ PLACEMENTS = {
     "Q4":  (42,    30,  0),
     "R1":  (25,    29.59, 0),
     "R2":  (45,    33,  0),
+    "R3":  (62,    46,  0),       # CON3/BUSY pull-down; north-east of J10
     "C2":  (35,    40,  0),
     "C3":  (39,    40,  0),
     "C4":  (50,    40,  0),
@@ -92,8 +104,8 @@ PAD_NETS = {
     ("J6", "7"):  "/BUSY_IN",
     ("J6", "8"):  "/CON2",
     ("J6", "9"):  "/CON1",
-    ("J7", "1"):  None,
-    ("J7", "2"):  "/TRIG_OUT",
+    ("J7", "1"):  "/TRIG_OUT",
+    ("J7", "2"):  None,
     ("J7", "3"):  None,
     ("J7", "4"):  None,
     ("J7", "5"):  None,
@@ -101,6 +113,9 @@ PAD_NETS = {
     ("J7", "7"):  None,
     ("J7", "8"):  None,
     ("J7", "9"):  "/GND",
+    ("J10", "2"): "/BUSY_IN",      # v3.1: fold /CON3 into /BUSY_IN
+    ("R3", "1"):  "/BUSY_IN",      # v3.1: CON3 pull-down
+    ("R3", "2"):  "/GND",
 }
 
 
@@ -177,6 +192,27 @@ def update_netlist():
             '(property (name "Sheetfile") (value "ahmygroin.kicad_sch")) '
             '(sheetpath (names "/") (tstamps "/")) '
             '(tstamps "tp1-v33-test-point"))'
+        ))
+
+    # 1b-bis (v3.1). Add R3 10 kΩ CON3 pull-down.
+    has_r3 = any(
+        (find(c, "ref") and len(find(c, "ref")) > 1
+         and find(c, "ref")[1] == "R3")
+        for c in find_all(components, "comp")
+    )
+    if not has_r3:
+        components.append(sexpdata.loads(
+            '(comp (ref "R3") (value "10k") '
+            '(footprint "Resistor_SMD:R_0805_2012Metric") '
+            '(fields '
+            '(field (name "Footprint") "Resistor_SMD:R_0805_2012Metric") '
+            '(field (name "Datasheet")) '
+            '(field (name "Description") "CON3/BUSY pull-down to GND")) '
+            '(libsource (lib "Device") (part "R") (description "Resistor")) '
+            '(property (name "Sheetname") (value "")) '
+            '(property (name "Sheetfile") (value "ahmygroin.kicad_sch")) '
+            '(sheetpath (names "/") (tstamps "/")) '
+            '(tstamps "r3-con3-pulldown"))'
         ))
 
     # 1c. Pad-net updates
@@ -442,15 +478,18 @@ def add_silk_text(board, text, x_mm, y_mm, size_mm=1.2, rotation=0):
 
 
 def add_polarity_silkscreen(board, placed):
+    # J1, J3 are 270°-rotated JST-XH 2-pin; the silk body of the footprint
+    # extends to the +x side of the pin column, so polarity text goes to
+    # the -x side to clear the silk rectangle.
     j1_p1 = get_pad_pos_cache(placed, "J1", 1)
     j1_p2 = get_pad_pos_cache(placed, "J1", 2)
-    add_silk_text(board, "+", j1_p1[0] + 2.8, j1_p1[1])
-    add_silk_text(board, "-", j1_p2[0] + 2.8, j1_p2[1])
+    add_silk_text(board, "+", j1_p1[0] - 5.0, j1_p1[1])
+    add_silk_text(board, "-", j1_p2[0] - 5.0, j1_p2[1])
 
     j3_p1 = get_pad_pos_cache(placed, "J3", 1)
     j3_p2 = get_pad_pos_cache(placed, "J3", 2)
-    add_silk_text(board, "+", j3_p1[0] + 2.8, j3_p1[1])
-    add_silk_text(board, "-", j3_p2[0] + 2.8, j3_p2[1])
+    add_silk_text(board, "+", j3_p1[0] - 5.0, j3_p1[1])
+    add_silk_text(board, "-", j3_p2[0] - 5.0, j3_p2[1])
 
     tp1 = PLACEMENTS["TP1"]
     add_silk_text(board, "V33", tp1[0] + 1.8, tp1[1])
@@ -573,10 +612,10 @@ def route(board, placed):
           (j2_1[0], 60), j2_1)
 
     j4_9 = P("J4", 9)
-    j7_2 = P("J7", 2)
+    j7_1 = P("J7", 1)
     chain(board, "TRIG_OUT", B_CU, W_SIG,
           j4_9, (17, j4_9[1]), (17, 27),
-          (j7_2[0] - 2, 27), (j7_2[0] - 2, j7_2[1]), j7_2)
+          (j7_1[0] - 2, 27), (j7_1[0] - 2, j7_1[1]), j7_1)
 
     j4_10 = P("J4", 10)
     chain(board, "BUSY_IN", B_CU, W_SIG,
@@ -587,6 +626,15 @@ def route(board, placed):
           (j6_7[0] - 2, j6_7[1]),
           (j6_7[0] - 2, 42),
           (j10_2[0], 42), j10_2)
+
+    # v3.1: R3 (10k) pulls /BUSY_IN to /GND via the J10 jumper rail
+    r3_1 = P("R3", 1)
+    r3_2 = P("R3", 2)
+    chain(board, "BUSY_IN", B_CU, W_SIG,
+          (j10_2[0], 42), (j10_2[0], r3_1[1]), r3_1)
+    j10_1 = P("J10", 1)
+    chain(board, "GND", B_CU, W_SIG,
+          r3_2, (r3_2[0], j10_1[1]), j10_1)
 
     j6_2 = P("J6", 2)
     j3_2 = P("J3", 2)
@@ -648,15 +696,17 @@ def main():
     # See PINOUTS.md §v3 routing notes.
     add_gnd_zones(board)
 
-    # Capture polarity-text positions BEFORE save (need pad positions)
+    # Capture polarity-text positions BEFORE save (need pad positions).
+    # J1/J3 are 270°-rotated JST-XH whose silk body sits on the +x side
+    # of the pin column; polarity text goes to the -x side to clear it.
     silk_text = [
-        ("+", get_pad_pos_cache(placed, "J1", 1)[0] + 2.8,
+        ("+", get_pad_pos_cache(placed, "J1", 1)[0] - 5.0,
               get_pad_pos_cache(placed, "J1", 1)[1]),
-        ("-", get_pad_pos_cache(placed, "J1", 2)[0] + 2.8,
+        ("-", get_pad_pos_cache(placed, "J1", 2)[0] - 5.0,
               get_pad_pos_cache(placed, "J1", 2)[1]),
-        ("+", get_pad_pos_cache(placed, "J3", 1)[0] + 2.8,
+        ("+", get_pad_pos_cache(placed, "J3", 1)[0] - 5.0,
               get_pad_pos_cache(placed, "J3", 1)[1]),
-        ("-", get_pad_pos_cache(placed, "J3", 2)[0] + 2.8,
+        ("-", get_pad_pos_cache(placed, "J3", 2)[0] - 5.0,
               get_pad_pos_cache(placed, "J3", 2)[1]),
         ("V33", PLACEMENTS["TP1"][0] + 2.5, PLACEMENTS["TP1"][1]),
     ]

@@ -37,7 +37,7 @@ A hardware ExecPlan in this repo will typically span one or more of the followin
 * **Electronics — PCB layout and Gerbers.** A `.kicad_pcb` file plus an exported Gerber zip in `kicad/fab/`. When an ExecPlan touches the PCB, name the footprint, the layer (F.Cu, B.Cu, F.SilkS), and the placement coordinate or relative location. Always re-run DRC and re-export Gerbers after any layout change.
 * **Hand assembly.** Soldering of SMD passives (0805 resistors and ceramic caps), SOT-23 transistors, through-hole connectors and electrolytic capacitors, through-hole module headers, and wires to JST-XH connectors. ExecPlans that touch assembly must specify *order* (SMD before TH before connectors before wires), *technique* (drag-soldering, tinning a pad first, reflow with hot air), and *verification* (visual under magnification, continuity beep with a multimeter).
 * **3D modelling and printing.** Blender Python scripts in `case/build_case.py`, headless-rendered for verification, and exported as STL for slicing. When an ExecPlan touches the case, give dimensions in millimetres, identify which features mate with which physical part (`BTN_HOLE_D = 88.0 mm` mates with the EG STARTS 100 mm Big Dome arcade button), and specify FDM-print tolerances (typically 0.4 mm slip-fit clearance, 0.15 mm interference for press-fits).
-* **Audio assets.** WAV → MP3 conversion for loading onto the DY-SV17F over USB. Format: mono, 48 kHz, 128 kbps, filename `0001.mp3` in the module's flash root.
+* **Audio assets.** WAV → MP3 conversion for loading onto the DY-SV17F over USB. Format: mono, 48 kHz, 128 kbps, filename `00001.mp3` (five-digit name, per datasheet) in the module's flash root.
 
 When a plan touches more than one discipline, dedicate a sub-section to each so a contributor specializing in only one can scope their work cleanly.
 
@@ -204,7 +204,7 @@ Prefer additive code changes followed by subtractions that keep tests passing. P
     For firmware:
 
         // In v2/firmware/main.cpp
-        void playAudio();   // power up DY-SV17F, pulse IO1, wait for BUSY, power down
+        void playAudio();   // power up DY-SV17F, pulse IO0, hold for fixed delay, power down
 
     For electronics:
 

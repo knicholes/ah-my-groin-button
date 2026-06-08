@@ -65,8 +65,8 @@ better audio path. ~$5 from any Amazon vendor.
                                                    └────┬────┘ └────┬────┘
                                                         │           ▲
                                                    D5 (GATE_CTRL) ──► Q4 NPN level shifter
-                                                   D6 (TRIG)  ─────────────────► DY-SV17F IO1
-                                                   D7 (BUSY)  ◄───────────────── DY-SV17F BUSY (pin 12)
+                                                   D6 (TRIG)  ─────────────────► DY-SV17F IO0 (right pin 1)
+                                                   D7 (BUSY)  ◄───────────────── DY-SV17F CON3/BUSY (left pin 7)
                                                    D2 (BTN)   ◄────── J2 ◄── EG STARTS microswitch
                                                                                 DY-SV17F SPK+/− ──► J3 ──► speaker
 ```
@@ -85,7 +85,7 @@ in J1 and that's the system's "after-switch" rail.
 | `PFET_GATE`  | Q1 gate / Q4 NPN collector / R2 pullup                           |
 | `GND`        | Battery− and system ground                                       |
 | `BTN_IN`     | D2 ← microswitch                                                 |
-| `TRIG_OUT`   | D6 → DY-SV17F IO1 (pulse LOW to trigger track)                   |
+| `TRIG_OUT`   | D6 → DY-SV17F IO0 (pulse LOW to trigger `00001.mp3`)             |
 | `BUSY_IN`    | D7 ← DY-SV17F BUSY pin (LOW = playing)                           |
 | `GATE_CTRL`  | D5 → R1 → Q4 base                                                |
 
@@ -119,19 +119,20 @@ each row, 20.5 mm pad-center-to-pad-center between rows, body ≈ 26 × 23
 mm.** Pin map (verified against physical module 2026-05-19):
 
 ```
-        LEFT side            RIGHT side
-        (top → bottom)       (top → bottom)
-        ┌────────────┐       ┌────────────┐
-    1   │ SPK+       │   1   │ TX  / IO0  │
-    2   │ SPK−       │   2   │ RX  / IO1  │  ← TRIG_OUT (D6)
-    3   │ DACL       │   3   │ IO2        │
-    4   │ DACR       │   4   │ IO3        │
-    5   │ V33        │   5   │ ONE_LINE/IO4│
-    6   │ V5  (VDFP) │   6   │ IO5        │
-    7   │ CON3/BUSY  │   7   │ IO6        │  ← BUSY_IN (D7)
-    8   │ CON2       │   8   │ IO7        │
-    9   │ CON1       │   9   │ GND        │
-        └────────────┘       └────────────┘
+        LEFT side             RIGHT side
+        (top → bottom)        (top → bottom)
+        ┌─────────────┐       ┌─────────────┐
+    1   │ SPK+        │   1   │ TX  / IO0   │  ← TRIG_OUT (D6)
+    2   │ SPK−        │   2   │ RX  / IO1   │
+    3   │ DACL        │   3   │ IO2         │
+    4   │ DACR        │   4   │ IO3         │
+    5   │ V33         │   5   │ ONE_LINE/IO4│
+    6   │ V5  (VDFP)  │   6   │ IO5         │
+    7   │ CON3/BUSY   │   7   │ IO6         │
+        │  → BUSY_IN (D7) and 10 kΩ pull-down to GND
+    8   │ CON2        │   8   │ IO7         │
+    9   │ CON1        │   9   │ GND         │
+        └─────────────┘       └─────────────┘
 ```
 
 (Pin numbering and orientation: verify against the silkscreen on your
@@ -216,24 +217,28 @@ driven.
 
 ### U2 — DY-SV17F header pin connections
 
-| Pin | Label | Net        |
-| --- | ----- | ---------- |
-| 2   | IO1   | `TRIG_OUT` |
-| 12  | BUSY  | `BUSY_IN`  |
-| 14  | GND   | `GND`      |
-| 15  | V5    | `VDFP`     |
-| 9   | SPK+  | J3.1       |
-| 10  | SPK-  | J3.2       |
+(Side / pin numbering — left/right as printed on the silkscreen, pin 1 at top.)
 
-All other DY-SV17F pins (IO0, IO2-7, V33, DACL, DACR) are NC.
+| Side / pin       | Label      | Net        |
+| ---------------- | ---------- | ---------- |
+| Right 1          | TX / IO0   | `TRIG_OUT` |
+| Left 7           | CON3/BUSY  | `BUSY_IN` *and* `CON3` (via 10 kΩ pull-down) |
+| Right 9          | GND        | `GND`      |
+| Left 6           | V5         | `VDFP`     |
+| Left 1           | SPK+       | J3.1       |
+| Left 2           | SPK−       | J3.2       |
+| Left 5           | V33        | `V33`      |
+| Left 8           | CON2       | `CON2`     |
+| Left 9           | CON1       | `CON1`     |
 
-**Mode configuration**: DY-SV17F mode is set by CON1/CON2/CON3 pins (not
-shown above). For "IO1 LOW = play track 001" behavior, set:
-- CON1 = GND, CON2 = V33 (IO trigger mode, single-shot)
-- CON3 per datasheet for your module variant
+All other DY-SV17F pins (IO1-7, DACL, DACR) are NC.
 
-Add three project-local 0805 0Ω jumpers or solder-bridge pads on the PCB
-for CON1/2/3 configuration so you can change modes without re-spinning.
+**Mode configuration**: I/O Independent Mode 0. Set via:
+- J8 shunt 1-2  → CON1 = GND
+- J9 shunt 2-3  → CON2 = V33
+- J10 unshunted, plus 10 kΩ pull-down R3 between CON3 and GND  → CON3 = GND at boot, BUSY output free afterwards
+
+In Independent Mode 0, grounding IO0 plays `00001.mp3`. (Grounding IO1 would play `00002.mp3`, IO2 → `00003.mp3`, etc.) The real CON1/CON2/CON3 truth table is in `PINOUTS.md`.
 
 ## 5. Layout rules
 
@@ -291,7 +296,7 @@ Same multimeter triage as v1 §9, with these additions specific to v2:
    1. Connect a USB cable from PC to the DY-SV17F's USB pads (or use a
       programming jig if you have one).
    2. The module appears as a removable flash drive.
-   3. Drop your `0001 ah-my-groin.mp3` file in the root.
+   3. Drop your `00001.mp3` file in the root (five-digit filename, per DY-SV17F datasheet).
    4. Eject and disconnect.
 4. Populate DY-SV17F. Press the button. Audio should play within ~200 ms.
 5. Measure peak current during playback at the battery: expect 100–200 mA
@@ -302,8 +307,10 @@ Same multimeter triage as v1 §9, with these additions specific to v2:
 In `v2/firmware/main.cpp`. ~60 lines, no library dependencies. Key
 differences from v1:
 - No SoftwareSerial, no DFPlayer library
-- `playAudio()` is: power-up → pulse trigger → wait for BUSY transitions
-  → power-down
+- `playAudio()` is: power-up → pulse IO0 LOW → fixed playback delay → power-down
+  (BUSY-readout variant available on builds with the 10 kΩ pull-down on CON3
+  + D7=`INPUT_PULLUP`; the current main.cpp uses the fixed-delay variant
+  with D7=`INPUT` to keep mode-select working on Kelly's no-resistor v2 board)
 
 ## 9. KiCad MCP servers — concrete options
 

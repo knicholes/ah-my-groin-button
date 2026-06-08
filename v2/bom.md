@@ -128,7 +128,7 @@ footprint specified in `v2/README.md` §3.
 | Item              | Source                       | Price | Notes |
 | ----------------- | ---------------------------- | ----- | ----- |
 | Custom v2 PCB     | JLCPCB or PCBWay             | ~$15  | 5-board minimum batch; 2-layer, **2.0 mm thickness**, HASL finish. Send the Gerber zip generated per `v2/README.md` §7. |
-| Audio file        | YouTube → ffmpeg / Audacity  | $0    | Hans Moleman "Ah! My Groin!" clip; export as `0001.mp3`, mono, 48 kHz, 128 kbps. Drag onto DY-SV17F via USB. |
+| Audio file        | YouTube → ffmpeg / Audacity  | $0    | Hans Moleman "Ah! My Groin!" clip; export as `00001.mp3` (five-digit filename, per DY-SV17F datasheet), mono, 48 kHz, 128 kbps. Drag onto DY-SV17F via USB. |
 
 ---
 

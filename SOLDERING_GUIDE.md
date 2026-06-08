@@ -14,7 +14,7 @@ You are starting from:
 * the kit-form parts listed in `v2/bom.md` (purchased components — Pro Mini, DY-SV17F audio module, AO3401A P-MOSFETs, MMBT3904 NPN, 0805 passives, JST-XH connectors, electrolytics, button, speaker, battery holder);
 * a 3D-printed case from `case/body.stl` and `case/bottom.stl`;
 * the firmware source at `v2/firmware/main.cpp`;
-* the audio clip prepared as a `0001.mp3` file on your PC.
+* the audio clip prepared as a `00001.mp3` file on your PC.
 
 You will end up with a finished, working unit you can hand to a friend.
 
@@ -33,11 +33,11 @@ The novice running this plan should tick each box in the order shown.
 - [ ] Step 2 complete — three SOT-23 transistors soldered (Q1, Q3, Q4) with correct orientation.
 - [ ] Step 3 complete — two through-hole electrolytic capacitors soldered (C1, C4) with correct polarity.
 - [ ] Step 4 complete — module header pins soldered to the PCB (J4 only for the Pro Mini left side — J5, J6, J7 all left empty per the *Hardware erratum*).
-- [ ] Step 5 complete — mode-select jumper pins soldered (J8, J9, J10) and shunts installed per the errata-revised table (J8 1-2 GND, J9 2-3 V33, J10 unshunted).
+- [ ] Step 5 complete — mode-select jumper pins soldered (J8, J9, J10) and shunts installed per the errata-revised table (J8 1-2 GND, J9 2-3 V33, J10 unshunted with 10 kΩ pull-down — or J10 bare for the no-resistor fallback). Configures Independent Mode 0.
 - [ ] Step 6 complete — three JST-XH connectors soldered (J1, J2, J3).
 - [ ] Step 7 complete — Pro Mini soldered onto J4 with right-side pins trimmed and 2 power flying wires (`RAW`/`VCC` → J5 pads 12/11); DY-SV17F hot-glued to the case off-PCB; 10 flying wires from module pin tips to PCB nets per the errata-revised wire table.
 - [ ] Step 8 complete — external wires crimped onto JST-XH housings: battery cable to J1-mate, button cable to J2-mate, speaker cable to J3-mate.
-- [ ] Step 9 complete — `0001.mp3` loaded onto DY-SV17F's onboard flash over USB.
+- [ ] Step 9 complete — `00001.mp3` loaded onto DY-SV17F's onboard flash over USB.
 - [ ] Step 10 complete — `v2/firmware/main.cpp` flashed to the Pro Mini via FTDI.
 - [ ] Step 11 complete — bring-up procedure passed (visual / continuity / powered).
 - [ ] Step 12 complete — device installed in 3D-printed case, screwed shut, drop-tested at chest height onto carpet.
@@ -349,13 +349,15 @@ Per pad data from the PCB (confirmed via the KiCad MCP), each jumper is wired:
 
 So a shunt across pads 1–2 ties that `CON` pin to GND; a shunt across pads 2–3 ties it to V33.
 
-DY-SV17F mode configuration (see `v2/README.md` §3 if you want the rationale): set the jumpers so the module interprets a falling pulse on its IO1 pin as "play track 001 once, then stop and wait." For the common DY-SV17F revision, that's `CON1 = GND`, `CON2 = V33`. `CON3` doubles as the BUSY output, so do **not** shunt J10 to either rail — leave J10 unshunted (the BUSY output drives it directly). The flying wire from the module's left-side pin 7 (CON3/BUSY) handles both the mode-pin sample at boot (high impedance ≈ floating, which selects one of the IO-trigger sub-modes per datasheet) and the BUSY readout.
+DY-SV17F mode configuration: set the jumpers so the module enters **I/O Independent Mode 0** — in that mode, grounding the module's IO0 pin plays `00001.mp3` once, then the module idles. The real datasheet truth table is in `PINOUTS.md`. We need `CON1 = GND`, `CON2 = V33`, `CON3 = GND`.
+
+`CON3` is dual-purpose — sampled for mode-select during the first ~30 ms after power-on, then it switches to driving the BUSY output. Hard-shorting it to GND would fight the BUSY output; the clean fix is to bias it LOW with a **10 kΩ pull-down resistor** so mode-detect sees LOW but the push-pull BUSY output can still pull the line HIGH afterward.
 
 * J8 → shunt pads 1–2 (CON1 ↔ GND).
 * J9 → shunt pads 2–3 (CON2 ↔ V33).
-* J10 → no shunt. The module's CON3/BUSY pin floats during boot-sampling and then drives the line as a BUSY output during playback.
+* J10 → no shunt **AND** solder a 10 kΩ resistor across J10 pads 1–2 (CON3 ↔ GND via the pull-down).
 
-If `CON3` floating gives the wrong mode on your specific module revision (check the silkscreen table on the back of the DY-SV17F), the fallback is a 10 kΩ pull-up or pull-down resistor across J10 pads 2–3 or pads 1–2 respectively, rather than a hard shunt — the resistor lets the module's BUSY output still pull the line during playback.
+If you don't have a 10 kΩ resistor handy and want to skip BUSY readout for now, the empirically-working fallback is **J10 unshunted with no pull-down resistor**, *plus* a firmware tweak: set D7 as `INPUT` (no internal pullup) so the Pro Mini doesn't pull CON3 HIGH at boot, and replace the firmware's `while (BUSY == HIGH)` loop with a fixed playback delay. This is what Kelly's first v2 board runs (2026-06-07). Add the 10 kΩ later if you want clean BUSY-based timing.
 
 If you can't find shunts, you can hand-solder a wire bridge between the two pins instead. Less convenient to reconfigure but works fine.
 
@@ -453,23 +455,23 @@ Each wire goes from one of the DY-SV17F's pin-header tips (used as a terminal po
 
 | # | Module pin (location on DY-SV17F) | PCB landing point | PCB net | Purpose |
 |---|---|---|---|---|
-| 1 | Right side pin 2 (`RX/IO1`) | **J6 pad 2** at (55, 7.54) | /TRIG_OUT | Trigger pulse from Pro Mini D6 |
+| 1 | Right side pin 1 (`TX/IO0`) | **J6 pad 2** at (55, 7.54) | /TRIG_OUT | Trigger pulse from Pro Mini D6. In Independent Mode 0, IO0 plays `00001.mp3`. (The original guide had wire #1 on pin 2 / IO1 — that was wrong; IO1 would play `00002.mp3`.) |
 | 2 | Right side pin 9 (`GND`, bottom of right column) | Any GND hole — **J7 pad 3** at (72.78, 10.08) is closest | /GND | Module ground reference |
 | 3 | Left side pin 1 (`SPK+`, top) | **J7 pad 8** at (72.78, 22.78) | /SPK_P | Speaker output + |
 | 4 | Left side pin 2 (`SPK-`) | **J7 pad 7** at (72.78, 20.24) | /SPK_N | Speaker output − |
 | 5 | Left side pin 5 (`V33`) | **J8/J9/J10 pad 3** (any of them — all are the same /V33 net; J10 pad 3 at (70.08, 50) is closest) | /V33 | Feeds the V33 rail to the mode-select jumpers |
 | 6 | Left side pin 6 (`V5`) | **J7 pad 2** at (72.78, 7.54) | /VDFP | Module power input (gated by Q1) |
-| 7 | Left side pin 7 (`CON3/BUSY`) | **J7 pad 5** at (72.78, 15.16) | /BUSY_IN | BUSY readout to Pro Mini D7 (this pin also samples its mode-select state at boot from being un-shunted on J10) |
+| 7 | Left side pin 7 (`CON3/BUSY`) | **J7 pad 5** at (72.78, 15.16) | /BUSY_IN | BUSY readout to Pro Mini D7. This pin is also where the CON3 mode-select state is sampled at boot — see Step 5 for the 10 kΩ pull-down (or the no-resistor fallback). Firmware must keep D7 as `INPUT` (no pullup) or the pullup will yank CON3 HIGH at boot and break mode-select. |
 | 8 | Left side pin 8 (`CON2`) | **J9 pad 2** at (57.54, 50) | /CON2 | Mode-select CON2 to its jumper |
 | 9 | Left side pin 9 (`CON1`, bottom) | **J8 pad 2** at (47.54, 50) | /CON1 | Mode-select CON1 to its jumper |
 
-Optional tenth wire — only if you want the BUSY-readout path *and* CON3 mode-select to be tied together:
+Optional tenth wire — only if you installed the 10 kΩ pull-down on J10 pads 1–2 (per Step 5) and want CON3 bonded to that pull-down via the jumper rail rather than via the BUSY readout wire alone:
 
-| 10 | Left side pin 7 (`CON3/BUSY`) also runs to | **J10 pad 2** at (67.54, 50) | /CON3 | Bonds the BUSY line to the CON3 jumper net (the two PCB holes carrying `/BUSY_IN` and `/CON3` are not on the same net by default; you're creating that bond with this wire) |
+| 10 | Left side pin 7 (`CON3/BUSY`) also runs to | **J10 pad 2** at (67.54, 50) | /CON3 | Bonds the BUSY line to the CON3 jumper net. The `/BUSY_IN` and `/CON3` PCB nets are not connected to each other by default — wire #10 creates that bond. |
 
-Wire #10 is only needed if your DY-SV17F revision boots into the wrong mode with CON3 floating. If wire #7 already gets you "press button → play once → stop" behavior at bring-up, omit wire #10. If you see continuous looping or no playback, add wire #10 and try the J10 shunts described in Step 5.
+Wire #10 is **not** needed for the no-resistor fallback (where J10 is bare). It is recommended for the 10 kΩ pull-down configuration so that CON3 sees the pull-down via two independent paths.
 
-Right-side pins 1 (`TX/IO0`) and 3–8 (`IO2`–`IO7`) and left-side pins 3 (`DACL`) and 4 (`DACR`) are intentionally left disconnected.
+Right-side pins 2 (`RX/IO1`) and 3–8 (`IO2`–`IO7`) and left-side pins 3 (`DACL`) and 4 (`DACR`) are intentionally left disconnected.
 
 **Procedure per wire:**
 
@@ -499,14 +501,14 @@ The DY-SV17F has 4 MB of onboard flash that the module exposes as a USB mass-sto
 
 Procedure:
 
-1. Prepare the audio file on your PC. Source the "Ah! My groin!" clip (or whatever you want to play) and export it as `0001.mp3`, mono, 48 kHz, 128 kbps. Audacity (Effect → Resample → 48000; Tracks → Mix → Mix Stereo Down to Mono; File → Export → MP3) does this fine. The filename matters — DY-SV17F plays the lowest-numbered file in its directory listing when triggered.
+1. Prepare the audio file on your PC. Source the "Ah! My groin!" clip (or whatever you want to play) and export it as `00001.mp3` (**five digits, per the DY-SV17F datasheet**), mono, 48 kHz, 128 kbps. Audacity (Effect → Resample → 48000; Tracks → Mix → Mix Stereo Down to Mono; File → Export → MP3) does this fine. In Independent Mode 0, IO0 plays `00001.mp3`, IO1 plays `00002.mp3`, etc.
 2. Plug a USB cable from your PC into the DY-SV17F. Some module revisions have an on-board USB-A connector you plug directly into a USB-A port via a short cable; others have a 4-pad area marked `D+` `D−` `5V` `GND` that you connect with bare wires to a hacked-up USB cable. Check yours.
 3. The module will enumerate as a removable USB drive on your PC.
-4. Copy `0001.mp3` to the root of the drive.
+4. Copy `00001.mp3` to the root of the drive.
 5. Right-click the drive and choose "Eject" before unplugging — this matters; on most operating systems an un-ejected USB drive can leave the file system half-written.
 6. Unplug the USB cable.
 
-The audio is now on the DY-SV17F's flash and will play whenever IO1 is pulsed LOW (the firmware will do this in step 10).
+The audio is now on the DY-SV17F's flash and will play whenever IO0 is pulsed LOW (the firmware will do this in step 10).
 
 ### Step 10 — Flash the firmware onto the Pro Mini
 
@@ -566,7 +568,7 @@ Multimeter in continuity-beep mode. Probe between each pair below; a beep means 
 * Pro Mini `VCC` solder pad ↔ J8 pad 3 — should beep (the V33 rail via flying wire P2 to J5 pad 11; J8 pad 3 is also on /V33).
 * J5 pad 11 ↔ J5 pad 12 — should *not* beep (these are two different nets, V33 and VSYS; they only become electrically distinct because flying wires P1 and P2 are correctly placed).
 * DY-SV17F left-side pin 6 (`V5`) ↔ Q1 drain — should beep (the `VDFP` flying wire to J7 pad 2 to Q1, gated).
-* DY-SV17F right-side pin 2 (`RX/IO1`) ↔ Pro Mini D6 — should beep (wire #1 lands on J6 pad 2, which carries `TRIG_OUT`).
+* DY-SV17F right-side pin 1 (`TX/IO0`) ↔ Pro Mini D6 — should beep (wire #1 lands on J6 pad 2, which carries `TRIG_OUT`).
 * DY-SV17F left-side pin 7 (`CON3/BUSY`) ↔ Pro Mini D7 — should beep (the `BUSY_IN` flying wire to J7 pad 5).
 * DY-SV17F right-side pin 9 (`GND`, overhanging J6's bottom edge) ↔ J1.2 — should beep (the ground flying wire).
 * DY-SV17F left-side pin 5 (`V33`) ↔ J8 pad 3 — should beep (the V33 flying wire feeds the jumper rail).
@@ -599,7 +601,7 @@ If `VDFP` reads ~`VSYS` while the firmware should be holding D5 LOW, suspect Q4 
 
 Plug in the speaker, button, and battery cables (or keep the bench supply if you're not on batteries yet). Press the button.
 
-Expected: ~50 ms after the press, the DY-SV17F powers up; ~100 ms later it starts playing `0001.mp3` through the speaker. When the clip ends (DY-SV17F BUSY goes HIGH again), the firmware powers down the module and returns to deep sleep.
+Expected: ~50 ms after the press, the DY-SV17F powers up; ~100 ms later it starts playing `00001.mp3` through the speaker. On builds with the 10 kΩ pull-down + BUSY readout, the firmware powers down the module as soon as BUSY goes HIGH again. On the no-resistor fallback (current `main.cpp`), the firmware holds the module powered for a fixed `PLAY_DURATION_MS` (default 4 s) and then powers down. Either way, it returns to deep sleep.
 
 #### 11.7 Sleep current
 
@@ -631,7 +633,7 @@ Done.
 
 The device is acceptable when:
 
-* Pressing the dome button once produces audible playback of `0001.mp3` through the speaker, within ~250 ms.
+* Pressing the dome button once produces audible playback of `00001.mp3` through the speaker, within ~250 ms.
 * The audio plays cleanly to the end without stutter or repeat-trigger.
 * Pressing the button again during playback does not crash, double-trigger, or queue a second play (the firmware ignores presses while BUSY).
 * With the device sitting idle, the on/off switch on the battery holder cuts all current draw (you can verify by removing one battery — the device should be undamaged when reinserted regardless of orientation, courtesy of Q3 reverse-polarity protection).
@@ -659,7 +661,7 @@ Steps that are *not* idempotent (consume material or are physically irreversible
 
 Steps that *are* idempotent (run as many times as you want):
 
-* Step 9: re-loading the MP3. You can change the audio file by repeating step 9 with a different `0001.mp3` later.
+* Step 9: re-loading the MP3. You can change the audio file by repeating step 9 with a different `00001.mp3` later.
 * Step 10: re-flashing the firmware. You can iterate on `v2/firmware/main.cpp` and reflash any number of times.
 * Step 11: bring-up. Power up, measure, power down. Repeat as needed.
 
@@ -687,12 +689,16 @@ Useful photos to take during your build (and paste references here in `Surprises
 
 For firmware: at the end of step 10, the Pro Mini must be running the build produced from `v2/firmware/main.cpp` (commit hash of your repo at the time of build). The firmware exposes the following pin behavior — these are the contract that the rest of the build depends on:
 
-    D2  INPUT_PULLUP  Button input. FALLING-edge interrupt wakes from sleep.
+    D2  INPUT_PULLUP  Button input. LOW-level interrupt wakes from sleep.
     D5  OUTPUT        DY-SV17F power-gate via Q4 → Q1 high-side P-MOSFET.
                       HIGH = DY-SV17F powered; LOW = DY-SV17F off.
-    D6  OUTPUT        DY-SV17F IO1 trigger. Held HIGH at rest; pulsed LOW
-                      for 20 ms to trigger track 001.
-    D7  INPUT_PULLUP  DY-SV17F BUSY input. LOW = module is playing.
+    D6  OUTPUT        DY-SV17F IO0 trigger. Held HIGH at rest; pulsed LOW
+                      for ≥20 ms to trigger 00001.mp3.
+    D7  INPUT         DY-SV17F CON3/BUSY line. NO internal pullup — a
+                      pullup here pulls CON3 HIGH during the chip's boot
+                      mode-sample and breaks mode-select. BUSY readout
+                      is therefore unavailable on the no-resistor build;
+                      playback timing uses a fixed PLAY_DURATION_MS.
 
 For electronics: at the end of step 7, the following nets must be electrically continuous and otherwise isolated:
 
@@ -701,8 +707,8 @@ For electronics: at the end of step 7, the following nets must be electrically c
     VDFP   — Q1.D → U2.V5(pin 15), C4+, C5+, C6+
     GND    — J1.2 → ground pour on F.Cu and B.Cu (everything else)
     BTN_IN — J2.1 → U1.D2
-    TRIG_OUT — U1.D6 → U2.IO1(pin 2)
-    BUSY_IN  — U2.BUSY(pin 12) → U1.D7
+    TRIG_OUT — U1.D6 → U2.IO0(right pin 1)
+    BUSY_IN  — U2.CON3/BUSY(left pin 7) → U1.D7
     PFET_GATE — Q1.G → Q4.C → R2 (pull-up to VSYS)
     GATE_CTRL — U1.D5 → R1 → Q4.B
 
