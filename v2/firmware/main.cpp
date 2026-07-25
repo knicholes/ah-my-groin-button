@@ -14,7 +14,12 @@
  * Pin map:
  *  D2  INPUT_PULLUP  Button (LOW-level interrupt for wake)
  *  D5  OUTPUT        DY-SV17F power-gate (HIGH = powered)
- *  D6  OUTPUT        DY-SV17F IO0 trigger (LOW pulse = play 00001.mp3)
+ *  D6  OUTPUT        DY-SV17F IO0 trigger (LOW pulse = play 00001.mp3).
+ *                    Held LOW while the module is unpowered — driving it
+ *                    HIGH would phantom-power the unpowered module through
+ *                    its input-protection diodes (~8.7 mA measured on the
+ *                    built v2 board, 2026-07). Raised HIGH just before the
+ *                    power gate opens so boot doesn't see a false trigger.
  *  D7  INPUT         DY-SV17F CON3 line — NO PULLUP. A pullup here pulls
  *                    CON3 HIGH during the module's boot mode-sample,
  *                    which selects the wrong mode and silences playback.
@@ -31,7 +36,11 @@
 #define TRIG_PIN  6
 #define BUSY_PIN  7
 
-#define BOOT_MS           50
+// The module now cold-boots from 0 V (phantom power removed 2026-07), so it
+// needs time to bring up its own regulator and read flash before it will
+// notice the trigger pulse. 50 ms was only ever enough because the module sat
+// pre-warmed at 2.5 V on phantom power.
+#define BOOT_MS         1000
 #define TRIG_PULSE_MS    100
 #define PLAY_DURATION_MS 4000
 
@@ -44,13 +53,19 @@ void buttonISR() {
 
 void enterDeepSleep() {
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-    sleep_enable();
     attachInterrupt(digitalPinToInterrupt(BTN_PIN), buttonISR, LOW);
+    cli();
+    sleep_enable();
+    sleep_bod_disable();   // ~20 uA saved; must be right before sleep_cpu()
+    sei();
     sleep_cpu();
     sleep_disable();
 }
 
 void playAudio() {
+    // TRIG must be HIGH before the module powers up, or boot sees a
+    // false trigger. It idles LOW to avoid phantom-powering the module.
+    digitalWrite(TRIG_PIN, HIGH);
     digitalWrite(GATE_PIN, HIGH);
     delay(BOOT_MS);
 
@@ -61,6 +76,7 @@ void playAudio() {
     delay(PLAY_DURATION_MS);
 
     digitalWrite(GATE_PIN, LOW);
+    digitalWrite(TRIG_PIN, LOW);   // back to phantom-safe idle state
 }
 
 void setup() {
@@ -70,7 +86,7 @@ void setup() {
     pinMode(BUSY_PIN, INPUT);
 
     digitalWrite(GATE_PIN, LOW);
-    digitalWrite(TRIG_PIN, HIGH);
+    digitalWrite(TRIG_PIN, LOW);   // idle LOW: no phantom feed into IO0
 
     power_adc_disable();
     power_spi_disable();

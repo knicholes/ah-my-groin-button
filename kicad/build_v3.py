@@ -23,6 +23,25 @@ v3.1 fixes (2026-06-07, post-bring-up):
      samples CON3=LOW during boot for Independent Mode 0, while the
      module's push-pull BUSY output can still drive HIGH afterward.
 
+v3.2 — REQUIRED, NOT YET IMPLEMENTED (identified 2026-07-25):
+
+ 10. Split the /V33 net in two. Right now ("J5","4") and ("J6","5") are
+     both on /V33, i.e. the Pro Mini's always-on VCC output is bonded to
+     the DY-SV17F's V33 output *and* to the J8/J9/J10 pad-3 jumper rail.
+     Two consequences, both bad:
+       (a) two regulator outputs are tied together and back-drive;
+       (b) CON2 (shunted to that rail on J9 pads 2-3) sits at 3.3 V even
+           when Q1 has the module gated off, so current flows into the
+           powered-down module through its input protection diodes and
+           half-wakes it. Measured 8.7 mA of permanent idle draw on
+           Kelly's built v2 board.
+     Fix: ("J5","4") → new net "/V33_MCU" (or leave the pad un-routed —
+     nothing on this board consumes the Pro Mini's VCC). Leave /V33 fed
+     only by ("J6","5"), the module's own V33 output, which correctly
+     collapses to 0 V when the gate closes. TP1 stays on /V33.
+     Routing at lines ~577-591 must be re-derived accordingly.
+     See PINOUTS.md -> "Phantom power".
+
 Pipeline:
   1. Mutate kicad/ahmygroin.net (sexpdata: footprints, pad-nets, TP1).
   2. Build a fresh kicad/ahmygroin.kicad_pcb from the updated netlist

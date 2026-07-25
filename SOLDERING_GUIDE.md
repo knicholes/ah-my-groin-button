@@ -46,10 +46,14 @@ Use a real date/time when checking these off, e.g. `- [x] (2026-05-16 14:00Z) St
 
 ## Surprises & Discoveries
 
-(Empty until something surprises you. Examples of what to record here:)
+* `Observation:` (2026-07-25) The DY-SV17F draws ~8.7 mA while it is supposed to be switched off by the Q1 power gate.
+  `Evidence:` Board idle current 12.95 mA. Lifting the module's GND flying wire dropped it to 4.3 mA. The module's `V5` pin read 2.56 V with the gate closed — one diode drop below 3.3 V. Cause: the module was being back-fed through its input protection diodes from `CON2` (bonded to the always-on `/V33` rail via the Pro Mini's `VCC`) and from `IO0` (firmware idled D6 HIGH). Both paths closed → 0.15 mA idle. Full write-up in `PINOUTS.md` → *Phantom power*.
 
-* `Observation:` …
-  `Evidence:` …
+* `Observation:` (2026-07-25) Removing phantom power made the device go completely silent, which looked like a regression.
+  `Evidence:` D5 measured correctly (0 V idle, ~3 V for the full playback window on a press), so the MCU and gate were fine — the module simply wasn't hearing the trigger. It had never cold-booted before: phantom power kept it pre-warmed at 2.5 V, so a 50 ms `BOOT_MS` was enough. From a genuine 0 V start it needs far longer. `BOOT_MS` 50 → 1000 restored audio immediately.
+
+* `Observation:` (2026-07-25) The Pro Mini's onboard regulator on the HiLetgo clones is **not** an AMS1117.
+  `Evidence:` The part is a 5-pin SOT-23-5 (three legs one side, two the other) marked `S2XI`, with an enable pin — a modern low-quiescent-current regulator, not the thirsty SOT-223 AMS1117 the earlier docs assumed. Do not plan an "LDO bypass" around it; it is not the drain. Measured idle after all other fixes was 150 µA total, which bounds its quiescent current well below what a bypass could recover.
 
 ## Decision Log
 
@@ -363,6 +367,14 @@ If you can't find shunts, you can hand-solder a wire bridge between the two pins
 
 The V33 rail on J8/J9/J10 pad 3 needs a feed too: it comes from the DY-SV17F's left-side pin 5 (V33 output) via a flying wire installed in Step 7.
 
+> **Critical (added 2026-07-25): the jumper rail's V33 must come from the *module's* V33 output and nothing else.**
+>
+> On the v2/v3.1 boards the Pro Mini's `VCC` pad also lands on the same `/V33` net. That rail is powered whenever the batteries are switched on, even with the module gated off — so `CON2`, shunted to it, sits at 3.3 V forever. Current flows backwards into the powered-down module through its input protection diodes and half-wakes the chip. On Kelly's board this alone cost about **8.7 mA of permanent idle draw** — the difference between a week and two years of battery life.
+>
+> Do not connect the Pro Mini's `VCC` pad to the J8/J9/J10 pad-3 rail. If you are building on a board where they already share a net, break that link and run `CON2` straight to the module's own `V33` pin instead. Full explanation and diagnostic fingerprints: `PINOUTS.md` → *Phantom power*.
+>
+> The same rule governs every other line into the module, which is why the firmware idles D6 (`TRIG_OUT`) **LOW** rather than HIGH.
+
 ### Step 6 — Solder the JST-XH 2-pin connectors
 
 Three connectors: J1 (battery), J2 (button), J3 (speaker).
@@ -424,6 +436,8 @@ Two more flying wires, one for `RAW` and one for `VCC`:
 |---|---|---|---|---|
 | P1 | **`RAW`** (top of right edge — first pad from the FTDI end) | **J5 pad 12** at (30.24, 35.94) | /VSYS | Battery feed to the Pro Mini |
 | P2 | **`VCC`** (4th from top on right edge) | **J5 pad 11** at (30.24, 33.4) | /V33 | Pro Mini's 3.3 V regulator output going to the V33 rail |
+
+> **Skip wire P2 (2026-07-25).** `/V33` is the mode-select jumper rail, and it must be fed only by the DY-SV17F's own `V33` output (Step 7C wire #5) so it goes dead when the module is gated off. Bonding the Pro Mini's always-on `VCC` to it ties two regulator outputs together *and* phantom-powers the module through `CON2` — about 8.7 mA of permanent idle draw. Nothing in this build needs the Pro Mini's `VCC` brought out to the board. See `PINOUTS.md` → *Phantom power*.
 
 Procedure per wire — same as the DY-SV17F flying wires in Step 7C:
 
@@ -565,8 +579,8 @@ Multimeter in continuity-beep mode. Probe between each pair below; a beep means 
 * `VDFP` (J7 pad 2) ↔ `GND` — should not beep.
 * J1.1 ↔ Q3 source — should beep (this is the battery feed through the reverse-polarity FET).
 * Pro Mini `RAW` solder pad ↔ Q3 drain — should beep (the `VSYS` net is reached via flying wire P1 to J5 pad 12).
-* Pro Mini `VCC` solder pad ↔ J8 pad 3 — should beep (the V33 rail via flying wire P2 to J5 pad 11; J8 pad 3 is also on /V33).
-* J5 pad 11 ↔ J5 pad 12 — should *not* beep (these are two different nets, V33 and VSYS; they only become electrically distinct because flying wires P1 and P2 are correctly placed).
+* Pro Mini `VCC` solder pad ↔ J8 pad 3 — should **not** beep. (Revised 2026-07-25: wire P2 is no longer installed. A beep here means the always-on 3.3 V rail is bonded to the mode-select jumper rail, which phantom-powers the gated module through `CON2` — see the warning in Step 5.)
+* J5 pad 11 ↔ J5 pad 12 — should *not* beep (two different nets, V33 and VSYS).
 * DY-SV17F left-side pin 6 (`V5`) ↔ Q1 drain — should beep (the `VDFP` flying wire to J7 pad 2 to Q1, gated).
 * DY-SV17F right-side pin 1 (`TX/IO0`) ↔ Pro Mini D6 — should beep (wire #1 lands on J6 pad 2, which carries `TRIG_OUT`).
 * DY-SV17F left-side pin 7 (`CON3/BUSY`) ↔ Pro Mini D7 — should beep (the `BUSY_IN` flying wire to J7 pad 5).
@@ -601,11 +615,21 @@ If `VDFP` reads ~`VSYS` while the firmware should be holding D5 LOW, suspect Q4 
 
 Plug in the speaker, button, and battery cables (or keep the bench supply if you're not on batteries yet). Press the button.
 
-Expected: ~50 ms after the press, the DY-SV17F powers up; ~100 ms later it starts playing `00001.mp3` through the speaker. On builds with the 10 kΩ pull-down + BUSY readout, the firmware powers down the module as soon as BUSY goes HIGH again. On the no-resistor fallback (current `main.cpp`), the firmware holds the module powered for a fixed `PLAY_DURATION_MS` (default 4 s) and then powers down. Either way, it returns to deep sleep.
+Expected: ~1 s after the press (`BOOT_MS`, the module's cold-boot delay), the DY-SV17F gets its trigger pulse and starts playing `00001.mp3` through the speaker. On builds with the 10 kΩ pull-down + BUSY readout, the firmware powers down the module as soon as BUSY goes HIGH again. On the no-resistor fallback (current `main.cpp`), the firmware holds the module powered for a fixed `PLAY_DURATION_MS` (default 4 s) and then powers down. Either way, it returns to deep sleep.
 
 #### 11.7 Sleep current
 
-With the device idle (audio finished), the current at the battery input should be under 1 mA. With a Fluke-class meter you can resolve it to ~10 µA. If you see anything like 10 mA idle, the Pro Mini's onboard power LED is the culprit — the v1 docs used to call for desoldering it, but on a 3 × AA battery that LED's continuous 3 mA still gives months of life, so you can leave it if you don't care about absolute longevity.
+With the device idle (audio finished), the current at the battery input should be **around 150 µA** — that is the figure measured on Kelly's finished v2 board on 2026-07-25, and it works out to roughly 18–24 months on 3 × AA alkaline at 2–3 presses a day. Use the meter's 2 mA range for a stable reading; the 20 mA range can barely resolve it. **Do not press the button while the meter is on a low range** — playback pulls ~150 mA and will blow the meter's fuse.
+
+Anything much above that means something is still drawing current it shouldn't. In order of likelihood:
+
+| Reading | Cause | Fix |
+|---|---|---|
+| ~10–15 mA | Phantom power into the gated DY-SV17F via `CON2` and/or `IO0` | Step 5 warning, and `PINOUTS.md` → *Phantom power*. This is worth ~8.7 mA on its own. |
+| +1.7 mA | Pro Mini onboard power LED | Desolder it. There is often a second LED near the D8/D9 pads on clones — check for that one too. |
+| ~4 mA | ATmega not actually in power-down | Confirm the firmware calls `sleep_bod_disable()` and that unused pins are `INPUT_PULLUP` rather than floating. |
+
+To isolate a suspected phantom-power path without desoldering: measure the DY-SV17F's `V5` pin with the device idle. It should read **0 V**. If it reads ~2.5 V, something is feeding the module through an input pin.
 
 #### 11.8 Conformal coating (optional)
 
@@ -638,7 +662,7 @@ The device is acceptable when:
 * Pressing the button again during playback does not crash, double-trigger, or queue a second play (the firmware ignores presses while BUSY).
 * With the device sitting idle, the on/off switch on the battery holder cuts all current draw (you can verify by removing one battery — the device should be undamaged when reinserted regardless of orientation, courtesy of Q3 reverse-polarity protection).
 * The unit survives a 1 m drop onto carpet without losing function. Check after drop with another button press.
-* The unit's idle current with the holder switch on is under 1 mA (under 100 µA if you removed the Pro Mini power LED).
+* The unit's idle current with the holder switch on is around 150 µA (measured: 0.15 mA on Kelly's v2 board, 2026-07-25, with both Pro Mini LEDs removed and both phantom-power paths closed).
 
 Expected on the FTDI serial monitor at 9600 baud when DEBUG is built:
 

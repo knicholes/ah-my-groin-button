@@ -26,7 +26,7 @@ Verified against the physical modules by user Kelly on 2026-05-19. If you re-ver
 | 6 | `3` | D3 | — | Unused in v2 firmware. |
 | 7 | `4` | D4 | — | Unused in v2 firmware. |
 | 8 | `5` | D5 | **/GATE_CTRL** | Required. NPN base via R1 → P-FET gate. |
-| 9 | `6` | D6 | **/TRIG_OUT** | Required. Pulled HIGH at rest; pulses LOW to trigger DY-SV17F IO0. |
+| 9 | `6` | D6 | **/TRIG_OUT** | Required. **Idles LOW** (not HIGH — see *Phantom power* below); driven HIGH just before the power gate opens, then pulsed LOW to trigger DY-SV17F IO0, then returned LOW after the gate closes. |
 | 10 | `7` | D7 | **/BUSY_IN** | Required. Reads DY-SV17F BUSY (LOW during playback). Firmware must set this as plain `INPUT` (no pullup) — see CON3 note in U2 table. |
 | 11 | `8` | D8 | — | Unused. |
 | 12 | `9` | D9 | — | Unused. |
@@ -38,7 +38,7 @@ Verified against the physical modules by user Kelly on 2026-05-19. If you re-ver
 | 1 | `RAW` | VIN | **/VSYS** | Required. Battery feed after Q3 reverse-polarity FET. |
 | 2 | `GND` | GND | /GND (optional) | Can also use this GND instead of left pin 4. |
 | 3 | `RST` | RESET | — | Mirror of left pin 3. |
-| 4 | `VCC` (sometimes printed `V3.3`, `ACC`, `+3.3`) | VCC | **/V33** | Required. 3.3 V output of the Pro Mini's onboard AMS1117 regulator. Also powers the V33 net for mode-select jumpers. |
+| 4 | `VCC` (sometimes printed `V3.3`, `ACC`, `+3.3`) | VCC | **/V33_MCU** (was `/V33` through v3.1 — **bug**) | 3.3 V output of the Pro Mini's onboard regulator. This rail is **always on**. It must NOT be bonded to the module's `V33` pin or to the mode-select jumper rail — doing so phantom-powers the gated module. See *Phantom power* below. |
 | 5 | `A3` | A3 / D17 | — | Unused. |
 | 6 | `A2` | A2 / D16 | — | Unused. |
 | 7 | `A1` | A1 / D15 | — | Unused. |
@@ -79,10 +79,10 @@ The FTDI header is **not** wired to the PCB in any version — the Pro Mini is m
 | 2 | `SPK-` | Speaker output − | **/SPK_N** | Required. Drives J3 pin 2. |
 | 3 | `DACL` | Line-level DAC output (left ch.) | — | Unused for this build. |
 | 4 | `DACR` | Line-level DAC output (right ch.) | — | Unused. |
-| 5 | `V33` | 3.3 V output (internal regulator) | **/V33** | Required. Feeds the V33 net (shared with Pro Mini VCC for mode-select reference). |
+| 5 | `V33` | 3.3 V output (internal regulator) | **/V33** | This is an **output**, and it is dead whenever Q1 has the module gated off. That is exactly what makes it the correct reference for the mode-select jumper rail. It must **not** be tied to the Pro Mini's `VCC` (two regulator outputs back-driving each other, plus phantom power — see below). |
 | 6 | `V5` | 5 V power input | **/VDFP** | Required. Gated by Q1 P-FET from VSYS. |
 | 7 | `CON3` / `BUSY` | Mode select pin 3 / BUSY output | **/BUSY_IN** *and* **/CON3** | Required. Dual-purpose: sampled at boot for mode selection (first ~30 ms after power-on), then drives BUSY low during playback. In v3, biased LOW via a **10 kΩ pull-down resistor (R3) to GND** so the chip samples Independent Mode 0 at boot, while the push-pull BUSY output can still drive the line HIGH afterward. **Firmware must keep D7 as `INPUT` (no internal pullup) — a pullup here fights the boot-time pull-down and selects the wrong mode.** |
-| 8 | `CON2` | Mode select pin 2 | **/CON2** | Required. Set HIGH or LOW via J9 jumper. |
+| 8 | `CON2` | Mode select pin 2 | **/CON2** | Required, and must be HIGH for Independent Mode 0. Its HIGH reference must be the **module's own `V33` output**, never an always-on rail — see *Phantom power* below. |
 | 9 | `CON1` | Mode select pin 1 | **/CON1** | Required. Set HIGH or LOW via J8 jumper. |
 
 ### Right long edge (top to bottom)
@@ -123,6 +123,43 @@ In **I/O Independent Mode 0**, each IO pin is wired to one fixed track: IO0 play
 | CON3 | GND  | 10 kΩ pull-down resistor (R3) to GND. J10 left unshunted so it can also be used to override the mode during bring-up. |
 
 The on-board J8/J9/J10 jumpers (3-pin selectors, layout `GND / CON_x / V33`) must connect via the v3 PCB traces to the corresponding DY-SV17F CON pins. **In v2 these traces are missing — the CON nets exist only at the jumpers, not at the U2 footprint.**
+
+### Phantom power — the rule that governs every line into the module (2026-07)
+
+**Rule: while Q1 has the module gated off, every DY-SV17F pin driven by the Pro Mini must be at 0 V.**
+
+Every CMOS input has protection diodes to its own supply rail. Put a voltage on an input pin of a chip whose supply is at 0 V, and current flows *in through that pin*, through the diode, and onto the internal rail. The chip half-wakes at about one diode drop below the feeding voltage and sits there in permanent brown-out, drawing real current while appearing to be "off". That is phantom power, and the v2/v3.1 design has two paths for it:
+
+| Path | Mechanism | Fix |
+|---|---|---|
+| **IO0** (`/TRIG_OUT`, Pro Mini D6) | Firmware idled D6 HIGH at 3.3 V into the unpowered module's trigger input. | Firmware idles D6 **LOW**; raises it HIGH only in the window between the gate opening and the trigger pulse. |
+| **CON2** (`/CON2`, via J9 pads 2–3) | The jumper's V33 rail was fed from the Pro Mini's always-on `VCC`, so CON2 sat at 3.3 V forever. | Reference CON2 to the **module's own `V33` output pin**, which collapses to 0 V when the gate closes. |
+
+Measured on Kelly's built v2 board, 2026-07:
+
+| Condition | Idle current |
+|---|---|
+| As built (both phantom paths live, both LEDs still fitted) | 14.44 mA |
+| Both Pro Mini LEDs removed | 12.95 mA |
+| Both phantom paths closed + firmware `sleep_bod_disable()` + unused pins pulled up | **0.15 mA** |
+
+That is a ~86× reduction — from about a week on 3×AA to roughly 18–24 months at 2–3 presses/day.
+
+Diagnostic fingerprints, so this is recognisable next time:
+
+* The module's `V5` pin reads ~2.5 V while the module is supposed to be off (3.3 V in, minus a diode drop).
+* Lifting the module's `GND` wire makes several mA vanish — proof current is entering somewhere other than `V5`.
+* Lifting `IO0` makes the current go *up*, not down: the pin floats LOW, which in Independent Mode 0 means "play", so the half-powered chip keeps trying to start.
+* Periodic faint clicking with no button press = the module brown-out retry looping.
+
+**Cold-boot consequence.** A phantom-powered module is pre-warmed, so it responds to a trigger almost instantly. Once phantom power is removed it boots genuinely from 0 V and needs time to bring up its internal regulator and read flash. `BOOT_MS` in `v2/firmware/main.cpp` was 50 ms and worked only by accident; it is now **1000 ms**. If you ever fix a phantom-power path and playback goes silent, this is why — the trigger pulse is landing before the module is awake.
+
+**v4 netlist change required.** Split the current `/V33` net in two:
+
+* `/V33_MCU` — Pro Mini `VCC` (right-edge pad 4) only. Always on. Goes nowhere near the module.
+* `/V33` — the module's `V33` output pin (left-edge pad 5) and J8/J9/J10 pad 3 only. Gated, because it collapses when Q1 closes.
+
+Nothing else consumes the jumper rail: CON1 is strapped to GND (J8 pads 1–2) and CON3 uses the R3 pull-down, so CON2 is the only load on `/V33`. The split is free.
 
 ### USB / file loading
 
@@ -200,6 +237,7 @@ The PCB is correct (verified via KiCad MCP) and is the artifact that gets fab'd.
 
 ## Revision history
 
+* **2026-07-25 — phantom-power fix (v3.2 pending).** Kelly's v2 board drew 14.44 mA at idle — about a week of battery life against a claimed "months". Root cause: the unpowered DY-SV17F was being fed through its input-protection diodes from two always-on sources, `IO0` (firmware idled D6 HIGH) and `CON2` (jumper rail bonded to the Pro Mini's always-on `VCC`). Both closed; idle current is now **0.15 mA**, measured in series on the battery + line. Firmware `v2/firmware/main.cpp` updated: D6 idles LOW, `sleep_bod_disable()` added, `BOOT_MS` 50 → 1000 (a module that is no longer pre-warmed by phantom power needs a real cold-boot delay). `build_v3.py` still needs the `/V33` net split — see *Phantom power* above. — Claude (with Kelly).
 * **2026-06-07 — v3.1 mode-select + trigger-pin fix.** Kelly's v2 board (built with flying-wire workaround) was silent. Debug session revealed three doc bugs that were inherited by v3: (a) wrong CON1/CON2/CON3 truth table in this file, (b) `/TRIG_OUT` routed to module RX/IO1 instead of TX/IO0 (in Independent Mode 0, IO0 plays 00001.mp3 and IO1 plays 00002.mp3), (c) firmware D7 `INPUT_PULLUP` silently changed the mode-select at boot. All three corrected here and propagated to `kicad/build_v3.py`. New BOM item: 10 kΩ pull-down R3 on CON3. — Claude (with Kelly).
 * **2026-05-20 — v3 re-spin.** All six v2 bugs corrected via `kicad/build_v3.py`. Footprint pitch 2.5 mm metric (was 2.54 mm imperial); row pitch 20.5 mm (was 17.78 mm). User Kelly calipered the physical DY-SV17F: 26.3 × 23.08 mm outer. Routing left for the GUI autorouter. — Claude.
 * 2026-05-19 — Initial file. Created after user Kelly identified five Claude-introduced bugs in the v2 PCB during build of the first board. Pinouts verified against physical HiLetgo Pro Mini (B07RS911JD) and DY-SV17F (B0BPSPPW52) modules by Kelly. — Claude (with Kelly).
