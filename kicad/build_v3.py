@@ -23,24 +23,37 @@ v3.1 fixes (2026-06-07, post-bring-up):
      samples CON3=LOW during boot for Independent Mode 0, while the
      module's push-pull BUSY output can still drive HIGH afterward.
 
-v3.2 — REQUIRED, NOT YET IMPLEMENTED (identified 2026-07-25):
+v3.2 fixes (2026-07-25, post power-debug — no more flying wires):
 
- 10. Split the /V33 net in two. Right now ("J5","4") and ("J6","5") are
-     both on /V33, i.e. the Pro Mini's always-on VCC output is bonded to
-     the DY-SV17F's V33 output *and* to the J8/J9/J10 pad-3 jumper rail.
-     Two consequences, both bad:
-       (a) two regulator outputs are tied together and back-drive;
-       (b) CON2 (shunted to that rail on J9 pads 2-3) sits at 3.3 V even
-           when Q1 has the module gated off, so current flows into the
-           powered-down module through its input protection diodes and
-           half-wakes it. Measured 8.7 mA of permanent idle draw on
-           Kelly's built v2 board.
-     Fix: ("J5","4") → new net "/V33_MCU" (or leave the pad un-routed —
-     nothing on this board consumes the Pro Mini's VCC). Leave /V33 fed
-     only by ("J6","5"), the module's own V33 output, which correctly
-     collapses to 0 V when the gate closes. TP1 stays on /V33.
-     Routing at lines ~577-591 must be re-derived accordingly.
+ 10. /V33 no longer touches the Pro Mini. ("J5","4") (Pro Mini VCC) is
+     un-routed; /V33 is now fed *only* by ("J6","5"), the DY-SV17F's own
+     3.3 V output, and feeds only the J8/J9/J10 pad-3 jumper rail + TP1.
+     Previously both were on /V33, which (a) tied two regulator outputs
+     together and (b) held CON2 at 3.3 V even with Q1 gated off, feeding
+     the powered-down module through its input protection diodes.
+     Measured 8.7 mA of permanent idle draw on Kelly's built v2 board.
+     Now the rail collapses with the gate, as it must.
      See PINOUTS.md -> "Phantom power".
+
+ 11. Q3 reverse-polarity FET was wired backwards. For a P-channel
+     reverse-battery FET the *drain* goes to the battery and the *source*
+     to the load, gate to GND: on reversal the body diode (anode at
+     drain) is then reverse-biased and Vgs collapses to 0. v3.1 had
+     source=/VBATT, drain=/VSYS, which still conducts normally (so the
+     built board works) but offers NO reverse protection — on a reversed
+     cell the body diode conducts straight through the load. Pads 2/3
+     swapped: ("Q3","3")=/VBATT (drain), ("Q3","2")=/VSYS (source).
+
+ 12. ("J5","2") added to /GND — a second ground pin for the Pro Mini, so
+     the return path isn't a single via at J4 pad 4.
+
+ 13. Placement: C5/C6 moved out from under the DY-SV17F body and R1 out
+     from under the Pro Mini body, so every discrete is visible and
+     reworkable after both modules are installed.
+
+ 14. Silkscreen: true module body outlines (DY-SV17F 23.08 x 26.3,
+     Pro Mini 17.78 x 33.02) with pin-1 markers, per-pin labels on both
+     module footprints, and the jumper settings printed on the board.
 
 Pipeline:
   1. Mutate kicad/ahmygroin.net (sexpdata: footprints, pad-nets, TP1).
@@ -87,21 +100,43 @@ PLACEMENTS = {
     "C1":  (30,    50,  0),
     "Q1":  (50,    30,  0),
     "Q4":  (42,    30,  0),
-    "R1":  (25,    29.59, 0),
-    "R2":  (45,    33,  0),
-    "R3":  (62,    46,  0),       # CON3/BUSY pull-down; north-east of J10
-    "C2":  (35,    40,  0),
-    "C3":  (39,    40,  0),
+    # v3.2 placement rule: nothing lives under a module body, so every
+    # discrete stays visible and reworkable after both modules go in.
+    #   Pro Mini body   x[13.62, 31.62]  y[ 5.46, 38.48]
+    #   DY-SV17F body   x[53.71, 76.79]  y[ 1.85, 28.15]
+    # The strip x[32.5, 36] is reserved for J5's pin-name silkscreen, so
+    # nothing may sit there -- see SILK_PIN_LABELS. R1/C2/C3 were evicted.
+    "R1":  (38,    34,  0),       # was (25, 29.59) — under the Pro Mini
+    "R2":  (45,    34,  0),
+    "R3":  (62,    41,  0),       # CON3/BUSY pull-down; clear of J10 silk
+    "C2":  (20,    43,  0),       # VSYS bulk, below the Pro Mini body
+    "C3":  (24,    43,  0),       # VSYS 0.1uF
     "C4":  (50,    40,  0),
-    "C5":  (60,    30,  0),       # south of J6 row, west of Q1
-    "C6":  (64,    30,  0),
+    "C5":  (57,    33,  0),       # was (60,30) — clipped the DY body
+    "C6":  (62,    33,  0),       # was (64,30) — clipped the DY body
     "J1":  (14,    63,  270),
     "J2":  (28,    63,  270),
     "J3":  (74,    63,  270),
     "J8":  (45,    50,  90),
     "J9":  (55,    50,  90),
     "J10": (65,    50,  90),
-    "TP1": (43,    40,  0),
+    "TP1": (44,    44,  0),       # was (43,40) — too near the new C4 (50,40)
+}
+
+# Reference designators whose default position collides with the generated
+# silkscreen. J4-J7's defaults sit on the module body outline drawn over
+# them; J3's lands on the "+" polarity mark. Everything else is left alone.
+REF_POSITIONS = {
+    "J4": (15.00,  3.20),     # above the Pro Mini body (top edge y 5.46)
+    "J5": (30.24,  3.20),
+    "J6": (55.50, 30.00),     # below the DY body (bottom edge y 28.15)
+    "J7": (75.50, 30.00),
+    # The JST refs default to vertical text right where the polarity marks
+    # go, so "J1" and "+" run together and read as "J1+". Put them on the
+    # name line instead, horizontal, just left of the connector name.
+    "J1": ( 7.50, 58.50),
+    "J2": (21.50, 58.50),
+    "J3": (67.50, 58.50),
 }
 
 FOOTPRINT_CHANGES = {
@@ -113,7 +148,16 @@ PAD_NETS = {
     ("J5", "11"): None,
     ("J5", "12"): None,
     ("J5", "1"):  "/VSYS",
-    ("J5", "4"):  "/V33",
+    # v3.2: Pro Mini VCC is deliberately NOT connected. Bonding this
+    # always-on 3.3 V output to /V33 phantom-powers the gated module
+    # through CON2. Nothing on this board consumes it.
+    ("J5", "4"):  None,
+    ("J5", "2"):  "/GND",          # v3.2: second Pro Mini ground
+    # v3.2: reverse-polarity P-FET — drain to the battery, source to the
+    # load. Reversed in v3.1, which left the board unprotected.
+    ("Q3", "3"):  "/VBATT",        # drain  <- battery +
+    ("Q3", "2"):  "/VSYS",         # source -> load
+    ("Q3", "1"):  "/GND",          # gate
     ("J6", "1"):  "/SPK_P",
     ("J6", "2"):  "/SPK_N",
     ("J6", "3"):  None,
@@ -135,6 +179,15 @@ PAD_NETS = {
     ("J10", "2"): "/BUSY_IN",      # v3.1: fold /CON3 into /BUSY_IN
     ("R3", "1"):  "/BUSY_IN",      # v3.1: CON3 pull-down
     ("R3", "2"):  "/GND",
+}
+
+# (pinfunction, pintype) for pads PAD_NETS re-homes, so the mutated netlist
+# stays readable instead of saying "Pin_2_2 / passive" for a MOSFET.
+PIN_FUNCTIONS = {
+    ("Q3", "1"): ("G", "input"),
+    ("Q3", "2"): ("S", "passive"),
+    ("Q3", "3"): ("D", "passive"),
+    ("J5", "2"): ("GND", "passive"),
 }
 
 
@@ -261,9 +314,11 @@ def update_netlist():
                 break
         if target is None:
             continue
+        fn, ptype = PIN_FUNCTIONS.get((ref, pin),
+                                      (f"Pin_{pin}_{pin}", "passive"))
         target.append(sexpdata.loads(
             f'(node (ref "{ref}") (pin "{pin}") '
-            f'(pinfunction "Pin_{pin}_{pin}") (pintype "passive"))'
+            f'(pinfunction "{fn}") (pintype "{ptype}"))'
         ))
 
     # TP1 → /V33
@@ -496,22 +551,151 @@ def add_silk_text(board, text, x_mm, y_mm, size_mm=1.2, rotation=0):
     board.Add(t)
 
 
-def add_polarity_silkscreen(board, placed):
-    # J1, J3 are 270°-rotated JST-XH 2-pin; the silk body of the footprint
-    # extends to the +x side of the pin column, so polarity text goes to
-    # the -x side to clear the silk rectangle.
-    j1_p1 = get_pad_pos_cache(placed, "J1", 1)
-    j1_p2 = get_pad_pos_cache(placed, "J1", 2)
-    add_silk_text(board, "+", j1_p1[0] - 5.0, j1_p1[1])
-    add_silk_text(board, "-", j1_p2[0] - 5.0, j1_p2[1])
+# =====================================================================
+# Assembly silkscreen
+# =====================================================================
+#
+# Everything a person needs to populate and debug this board without a
+# printout. The v2 board shipped with bare reference designators, which is
+# why it took a multimeter and the schematic to work out which jumper pin
+# was which. Names below are the module's OWN silkscreen labels (see
+# PINOUTS.md), not the net names, so the label on the PCB matches the label
+# on the part sitting in your hand.
 
-    j3_p1 = get_pad_pos_cache(placed, "J3", 1)
-    j3_p2 = get_pad_pos_cache(placed, "J3", 2)
-    add_silk_text(board, "+", j3_p1[0] - 5.0, j3_p1[1])
-    add_silk_text(board, "-", j3_p2[0] - 5.0, j3_p2[1])
+# ref -> (pad names 1..n, which side the labels go on)
+SILK_PIN_LABELS = {
+    # DY-SV17F left edge, labels outboard (body edge is 1.29 mm past the row)
+    "J6": (["SPK+", "SPK-", "DACL", "DACR", "V33", "V5",
+            "BUSY", "CON2", "CON1"], "left"),
+    # DY-SV17F right edge
+    "J7": (["IO0", "IO1", "IO2", "IO3", "IO4", "IO5",
+            "IO6", "IO7", "GND"], "right"),
+    # Pro Mini, as printed on the clone board
+    "J4": (["TXO", "RXI", "RST", "GND", "D2", "D3",
+            "D4", "D5", "D6", "D7", "D8", "D9"], "left"),
+    "J5": (["RAW", "GND", "RST", "VCC", "A3", "A2",
+            "A1", "A0", "D13", "D12", "D11", "D10"], "right"),
+}
+SILK_LABEL_GAP  = 3.6      # mm from the pad column to the label centre
+SILK_LABEL_SIZE = 0.9
 
-    tp1 = PLACEMENTS["TP1"]
-    add_silk_text(board, "V33", tp1[0] + 1.8, tp1[1])
+# Jumper straps: (ref, title, setting, why)
+SILK_JUMPERS = [
+    ("J8",  "CON1", "SHUNT 1-2"),
+    ("J9",  "CON2", "SHUNT 2-3"),
+    ("J10", "CON3", "NO SHUNT"),
+]
+
+
+def strip_hidden_silkscreen(board, placed):
+    """Delete the silk outlines of the headers the modules plug into.
+
+    J4-J7's own footprint silk sits entirely inside the module body, so on a
+    populated board it is under 1.6 mm of Pro Mini / DY-SV17F and can never
+    be seen. Left in place it just collides with the body outline drawn over
+    it -- roughly twenty silk_overlap warnings. The reference designators are
+    kept: those are placed clear of the bodies and are still readable.
+    """
+    for ref, (x, y) in REF_POSITIONS.items():
+        fp = placed.get(ref)
+        if fp is not None:
+            fp.Reference().SetPosition(vec(x, y))
+            fp.Reference().SetTextAngle(pcbnew.EDA_ANGLE(0, pcbnew.DEGREES_T))
+
+    n = 0
+    for ref in ("J4", "J5", "J6", "J7"):
+        fp = placed.get(ref)
+        if fp is None:
+            continue
+        doomed = [g for g in fp.GraphicalItems()
+                  if board.GetLayerName(g.GetLayer()) in ("F.SilkS",
+                                                          "F.Silkscreen")]
+        for g in doomed:
+            fp.Remove(g)
+        n += len(doomed)
+    print(f"  stripped {n} hidden silk items from J4-J7")
+
+
+def module_body_rect(placed, ref_a, ref_b, across, along):
+    """Package outline of a module that plugs into two header rows."""
+    pts = []
+    for ref in (ref_a, ref_b):
+        fp = placed[ref]
+        pts += [(pcbnew.ToMM(p.GetPosition().x), pcbnew.ToMM(p.GetPosition().y))
+                for p in fp.Pads()]
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    # rows are separated on x for both modules on this board
+    return (cx - across / 2.0, cy - along / 2.0,
+            cx + across / 2.0, cy + along / 2.0)
+
+
+def collect_silkscreen(placed):
+    """Return (texts, lines, circles) to inject after SaveBoard.
+
+    Built from live pad positions rather than the PLACEMENTS constants so
+    that override_dy_pad_pitch()'s 2.5 mm metric shift is reflected -- using
+    PLACEMENTS here would put the DY labels on 2.54 mm centres and they
+    would walk 0.36 mm out of step by pad 9.
+    """
+    P = lambda r, p: get_pad_pos_cache(placed, r, p)
+    texts, lines, circles = [], [], []
+
+    # --- module body outlines -------------------------------------------
+    # The pin-1 corner is chamfered rather than dotted. A dot has nowhere to
+    # go here: inside the outline it is hidden under the module, and outside
+    # it lands in the pin-label column or on the reference designator. The
+    # chamfer is part of the outline, so it cannot collide with anything.
+    for name, a, b, across, along in (
+            ("DY-SV17F", "J6", "J7", DY_ROW_PITCH_MM + 2.58, 26.30),
+            ("PRO MINI", "J4", "J5", 17.78, 33.02)):
+        x0, y0, x1, y1 = module_body_rect(placed, a, b, across, along)
+        c = 2.0                       # chamfer at the pin-1 (top-left) corner
+        lines.extend([
+            (x0 + c, y0, x1, y0),
+            (x1, y0, x1, y1),
+            (x1, y1, x0, y1),
+            (x0, y1, x0, y0 + c),
+            (x0, y0 + c, x0 + c, y0),
+        ])
+        texts.append((name, (x0 + x1) / 2.0, y1 + 1.6, 1.0, 0))
+
+    # --- per-pin names --------------------------------------------------
+    for ref, (names, side) in SILK_PIN_LABELS.items():
+        for i, nm in enumerate(names, start=1):
+            x, y = P(ref, i)
+            dx = -SILK_LABEL_GAP if side == "left" else SILK_LABEL_GAP
+            texts.append((nm, x + dx, y, SILK_LABEL_SIZE, 0))
+
+    # --- jumper straps --------------------------------------------------
+    for ref, title, setting in SILK_JUMPERS:
+        x, y, _ = PLACEMENTS[ref]
+        texts.append((title,   x + 2.54, y - 3.2, 1.0, 0))
+        texts.append((setting, x + 2.54, y + 3.4, 0.9, 0))
+
+    # --- connector polarity + names -------------------------------------
+    # The JST-XH silk body is symmetric about the pin column, spanning
+    # +-2.9 mm. Polarity marks therefore go on the +x side: on the -x side
+    # the only gap is the 2.2 mm slot between the silk and the H3 mounting
+    # pad, which is too tight to print into. J2 gets no marks -- it is a
+    # momentary button, so its two pins are interchangeable.
+    for ref in ("J1", "J3"):
+        p1, p2 = P(ref, 1), P(ref, 2)
+        texts.append(("+", p1[0] + 3.6, p1[1], 1.0, 0))
+        texts.append(("-", p2[0] + 3.6, p2[1], 1.0, 0))
+    # Names sit above the connectors: the silk body reaches y 68.12 below,
+    # which leaves no room before the board edge at y 70.
+    for ref, name in (("J1", "BATTERY"), ("J2", "BUTTON"), ("J3", "SPEAKER")):
+        x, _, _ = PLACEMENTS[ref]
+        texts.append((name, x, 58.5, 0.8, 0))
+
+    # --- test point + board identity ------------------------------------
+    tp = P("TP1", 1)
+    texts.append(("V33", tp[0] + 2.6, tp[1], 0.9, 0))
+    texts.append(("AH! MY GROIN!  v3.2", 45, 66.5, 1.4, 0))
+    texts.append(("IDLE 0.15mA - NO WIRE LINKS", 45, 69.0, 0.8, 0))
+
+    return texts, lines, circles
 
 
 def route(board, placed):
@@ -714,21 +898,11 @@ def main():
     # ratsnest; the user runs the autorouter or hand-routes in the GUI.
     # See PINOUTS.md §v3 routing notes.
     add_gnd_zones(board)
+    strip_hidden_silkscreen(board, placed)
 
-    # Capture polarity-text positions BEFORE save (need pad positions).
-    # J1/J3 are 270°-rotated JST-XH whose silk body sits on the +x side
-    # of the pin column; polarity text goes to the -x side to clear it.
-    silk_text = [
-        ("+", get_pad_pos_cache(placed, "J1", 1)[0] - 5.0,
-              get_pad_pos_cache(placed, "J1", 1)[1]),
-        ("-", get_pad_pos_cache(placed, "J1", 2)[0] - 5.0,
-              get_pad_pos_cache(placed, "J1", 2)[1]),
-        ("+", get_pad_pos_cache(placed, "J3", 1)[0] - 5.0,
-              get_pad_pos_cache(placed, "J3", 1)[1]),
-        ("-", get_pad_pos_cache(placed, "J3", 2)[0] - 5.0,
-              get_pad_pos_cache(placed, "J3", 2)[1]),
-        ("V33", PLACEMENTS["TP1"][0] + 2.5, PLACEMENTS["TP1"][1]),
-    ]
+    # Collected BEFORE save because it reads live pad positions, which are
+    # only in the in-memory board until SaveBoard runs.
+    silk_texts, silk_lines, silk_circles = collect_silkscreen(placed)
 
     pcbnew.SaveBoard(str(PCB), board)
     n_fp = len(list(board.GetFootprints()))
@@ -736,19 +910,38 @@ def main():
     n_zn = len(list(board.Zones()))
     print(f"saved: {n_fp} footprints, {n_tk} tracks/vias, {n_zn} zones")
 
-    # --- post-save: inject silkscreen text via sexpdata ---
+    # --- post-save: inject silkscreen via sexpdata ---
+    # PCB_TEXT/PCB_SHAPE built through SWIG occasionally lose their layer
+    # assignment on save in this KiCad build; writing the s-expressions
+    # directly is deterministic.
     print("--- 4/4: silkscreen via sexpdata ---", flush=True)
     raw = PCB.read_text(encoding="utf-8")
     tree = sexpdata.loads(raw)
     import uuid as uuid_mod
-    for txt, x, y in silk_text:
-        block = sexpdata.loads(
-            f'(gr_text "{txt}" (at {x} {y}) (layer "F.SilkS") '
+
+    for txt, x, y, size, rot in silk_texts:
+        tree.append(sexpdata.loads(
+            f'(gr_text "{txt}" (at {x:.3f} {y:.3f} {rot}) (layer "F.SilkS") '
             f'(uuid "{uuid_mod.uuid4()}") '
-            f'(effects (font (size 1.2 1.2) (thickness 0.2))))'
-        )
-        tree.append(block)
+            f'(effects (font (size {size} {size}) '
+            f'(thickness {size * 0.16:.3f}))))'
+        ))
+    for x0, y0, x1, y1 in silk_lines:
+        tree.append(sexpdata.loads(
+            f'(gr_line (start {x0:.3f} {y0:.3f}) (end {x1:.3f} {y1:.3f}) '
+            f'(stroke (width 0.12) (type solid)) (layer "F.SilkS") '
+            f'(uuid "{uuid_mod.uuid4()}"))'
+        ))
+    for cx, cy, r in silk_circles:
+        tree.append(sexpdata.loads(
+            f'(gr_circle (center {cx:.3f} {cy:.3f}) '
+            f'(end {cx + r:.3f} {cy:.3f}) '
+            f'(stroke (width 0.12) (type solid)) (fill solid) '
+            f'(layer "F.SilkS") (uuid "{uuid_mod.uuid4()}"))'
+        ))
     PCB.write_text(sexpdata.dumps(tree), encoding="utf-8")
+    print(f"  {len(silk_texts)} texts, {len(silk_lines)} lines, "
+          f"{len(silk_circles)} circles")
 
     b2 = pcbnew.LoadBoard(str(PCB))
     print(f"SANITY: re-load ok={b2 is not None}", flush=True)

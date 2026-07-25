@@ -154,12 +154,14 @@ Diagnostic fingerprints, so this is recognisable next time:
 
 **Cold-boot consequence.** A phantom-powered module is pre-warmed, so it responds to a trigger almost instantly. Once phantom power is removed it boots genuinely from 0 V and needs time to bring up its internal regulator and read flash. `BOOT_MS` in `v2/firmware/main.cpp` was 50 ms and worked only by accident; it is now **1000 ms**. If you ever fix a phantom-power path and playback goes silent, this is why — the trigger pulse is landing before the module is awake.
 
-**v4 netlist change required.** Split the current `/V33` net in two:
+**Netlist change — DONE in v3.2 (`build_v3.py`, 2026-07-25).** The old `/V33` net is split in two:
 
 * `/V33_MCU` — Pro Mini `VCC` (right-edge pad 4) only. Always on. Goes nowhere near the module.
 * `/V33` — the module's `V33` output pin (left-edge pad 5) and J8/J9/J10 pad 3 only. Gated, because it collapses when Q1 closes.
 
-Nothing else consumes the jumper rail: CON1 is strapped to GND (J8 pads 1–2) and CON3 uses the R3 pull-down, so CON2 is the only load on `/V33`. The split is free.
+Nothing else consumes the jumper rail: CON1 is strapped to GND (J8 pads 1–2) and CON3 uses the R3 pull-down, so CON2 is the only load on `/V33`. The split was free.
+
+`kicad/verify_v3.py` asserts this permanently — it fails the build if `J5.4` ever reappears on `/V33`, or if `J6.5` (the module's own V33 output) ever leaves it. Do not "simplify" these back into one net.
 
 ### USB / file loading
 
@@ -186,41 +188,121 @@ The v2 PCB had six layout bugs that prompted the v3 re-spin. All structural fixe
 
 Plus: **TP1** test point added on the `/V33` net (between C2 and Q1, labeled "V33" on the silkscreen).
 
-## v3 routing pipeline (verified working 2026-06-08)
+## v3.2 build pipeline (fully scripted, 2026-07-25)
 
-`build_v3.py` produces an **unrouted** PCB — footprints, pad-net assignments, board outline, GND zones, and silkscreen are in place but no copper traces yet. The autoroute pipeline:
+Three scripts, run in order, all headless. Use **KiCad's bundled Python**, not a
+system one — `pcbnew` is only importable from there:
 
-1. Close KiCad if it has the PCB open.
-2. `python build_v3.py` — regenerates footprints, nets, placements, GND zone outlines, and silkscreen.
-3. KiCad MCP `export_dsn` → produces `ahmygroin.dsn`.
-4. Run **Freerouting v2.0.1** with Java 21 (Temurin LTS):
-   ```
-   "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot\bin\java.exe" \
-     -jar /tmp/freerouting-2.0.1.jar \
-     -de kicad/ahmygroin.dsn -do kicad/ahmygroin.ses -mp 30
-   ```
-   v2.2.x of Freerouting requires Java 25 — avoid it on this machine.
-5. KiCad MCP `import_ses` → applies routing back to `.kicad_pcb`.
-6. **Fill GND zones** (this step is needed because `build_v3.py` only adds the zone *outlines*, and `import_ses` doesn't fill either):
-   ```python
-   import pcbnew
-   b = pcbnew.LoadBoard("kicad/ahmygroin.kicad_pcb")
-   pcbnew.ZONE_FILLER(b).Fill(b.Zones())
-   pcbnew.SaveBoard("kicad/ahmygroin.kicad_pcb", b)
-   ```
-7. `kicad-cli pcb drc kicad/ahmygroin.kicad_pcb` — expect 0 violations, 0 unconnected.
-8. Open in KiCad GUI; eyeball R3, J7 routing, and pad alignment.
-9. Print at 1:1 scale; lay the physical Pro Mini + DY-SV17F on the paper to confirm pin alignment.
-10. Export Gerbers; upload to JLCPCB.
+```
+K = "K:\Program Files\KiCad\10.0\bin\python.exe"
 
-The 14 nets routed: VBATT, VSYS, V33, VDFP, GND, SPK_P, SPK_N, TRIG_OUT, BUSY_IN, GATE_CTRL, BTN_IN, Q1_GATE, Q4_BASE, CON1, CON2.
+& $K kicad\build_v3.py      # footprints, nets, placements, GND zones, silkscreen
+& $K kicad\route_v3.py      # DSN -> Freerouting -> SES -> import -> fill zones
+& $K kicad\verify_v3.py     # the pre-fab gate; exit 0 = safe to fab
+```
 
-## Suggested v3 verification before fab
+`build_v3.py` deliberately produces an **unrouted** board (its own v2 routing
+logic no longer matches v3 placements). `route_v3.py` closes that gap.
 
-- ERC + DRC pass in KiCad (currently DRC reports 0 violations on the unrouted board; will report unconnected items until routing is done).
-- 3D viewer: visually confirm U1 right-edge `RAW` and `VCC` silkscreen labels line up over the routed pads.
-- 3D viewer: confirm U2's actual STEP model (download a real DY-SV17F STEP file from a community library, not the DFPlayer Mini stand-in) fits the footprint without overlapping C4 or any 0805.
-- Print the board layout at 1:1 scale and physically lay your DY-SV17F and Pro Mini on the paper to confirm pin alignment before sending Gerbers. **This is the cheapest catch for any further footprint bugs.**
+Two things about `route_v3.py` that are not obvious and will bite anyone who
+rewrites it:
+
+* **It exports a zone-free copy of the board to DSN.** If the GND pours are in
+  the `.dsn`, Freerouting reads GND as an already-poured plane and routes *zero*
+  copper for it — 29 unrouted nets instead of 50. The fill then fragments into
+  islands and silently orphaned C4's ground pad. Exporting without the pours
+  forces GND to be routed as real tracks; the pours are still in the saved
+  board, so ground gets both a guaranteed track path and a plane over it.
+* **Each `pcbnew` step runs in its own subprocess.** Chaining
+  `LoadBoard`/`SaveBoard`/`ExportSpecctraDSN`/`ImportSpecctraSES` in one
+  interpreter makes the SWIG wrapper hand back a bare `SwigPyObject` partway
+  through; every method call after that dies with `AttributeError`.
+
+**Java:** Freerouting 2.x is compiled for **Java 25** (`class file version
+69.0`). The system JDK here is 21 and cannot start it. A local Temurin JRE 25
+is unpacked at `C:\Users\REDACTED-USER\.kicad-mcp\jre25\jdk-25.0.3+9-jre\` — nothing
+is installed system-wide. `route_v3.py` points at it directly.
+
+Nets routed: VBATT, VSYS, V33, V33_MCU, VDFP, GND, SPK_P, SPK_N, TRIG_OUT,
+BUSY_IN, GATE_CTRL, BTN_IN, Q1_GATE, Q4_BASE, CON1, CON2.
+
+## Pre-fab verification — `kicad/verify_v3.py`
+
+Run it and read the last line. `PASS` means fab; anything else means stop. It
+checks four things, two of which KiCad's DRC structurally *cannot*:
+
+1. **Module body keep-outs.** J4/J5 and J6/J7 are plain pin headers, so their
+   courtyards cover the header strips only — not the Pro Mini PCB or the
+   DY-SV17F package that plug in and overhang in every direction. DRC will
+   happily pass a board with a resistor pinned underneath a module. That was v2
+   bug #1 and it cost a whole fabrication round. The checker derives each body
+   rectangle from the live pad positions, so moving a header in `build_v3.py`
+   moves its keep-out automatically.
+2. **Electrical intent.** Netlist assertions for the rules that look right and
+   are wrong: the phantom-power split (`J5.4` off `/V33`), the reverse-polarity
+   FET orientation (`Q3.3`=drain→`/VBATT`, `Q3.2`=source→`/VSYS`), the Q1 load
+   switch, the R3 pull-down, and a dangling-net sweep.
+3. **Silkscreen vs. pads and edges.** The board's assembly silk is injected as
+   free-standing `gr_text`, and KiCad's "silk over pad" rule only fires for
+   *footprint* silk. Silk over a pad gets squeegeed away by paste or wicks into
+   the joint, so the label you most needed is the one that goes missing.
+4. **Routing completeness** — tracks, zones filled, unconnected count.
+
+Current state of `kicad/ahmygroin.kicad_pcb`:
+
+```
+module bodies   DY-SV17F x[53.71 76.79] y[ 1.85 28.15]
+                Pro Mini x[13.73 31.51] y[ 5.46 38.48]     0 parts underneath
+silkscreen      60 free texts, 0 over a pad, 0 off-board
+routing         148 tracks/vias   2 zones (2 filled)   0 unconnected
+kicad-cli drc   0 violations, 0 unconnected items
+```
+
+### The 1:1 paper fit check — do this before paying for fabrication
+
+`kicad/fab/v3.2-fitcheck-1to1.pdf` is the cheapest possible catch for a
+footprint bug, and footprint bugs are what killed v2.
+
+1. Print it **at 100% / "Actual size"**. Turn *off* "Fit to page", "Shrink to
+   fit", and any scaling. This matters more than anything else on this page.
+2. Measure the board outline rectangle with a ruler. It must be exactly
+   **90.0 × 70.0 mm**. If it isn't, the printer scaled it — fix that and
+   reprint before going further.
+3. Lay the physical DY-SV17F on its footprint. All 18 pins must drop onto pad
+   centres, both rows at once. Pitch is 2.5 mm *metric*, row pitch 20.5 mm — a
+   2.54 mm imperial footprint looks almost right and is off by 0.36 mm across
+   nine pins, which is exactly the v2 failure.
+4. Lay the physical Pro Mini on its footprint. 12 pins per side, 2.54 mm pitch,
+   0.6″ (15.24 mm) row pitch.
+5. Check nothing else is drawn *underneath* either module outline. The chamfered
+   rectangles on the print are the true package bodies, not the header strips.
+
+### Other checks
+
+- `kicad-cli pcb drc` — expect 0 violations, 0 unconnected.
+- 3D viewer: confirm U1's right-edge `RAW` and `VCC` silk labels line up over
+  the routed pads.
+- 3D viewer with a real DY-SV17F STEP model (a community-library one, not the
+  DFPlayer Mini stand-in) — confirm it clears C4 and every 0805.
+
+## Fabrication outputs
+
+`kicad/fab/` is regenerated by `kicad-cli`; it is not hand-edited.
+
+| File | What it is |
+|---|---|
+| `ahmygroin-v3.2-jlcpcb.zip` | Upload this to JLCPCB. Gerbers + drill. |
+| `gerbers/` | The unzipped contents — 7 layers, `.drl`, `.gbrjob`. |
+| `v3.2-fitcheck-1to1.pdf` | The 1:1 paper print described above. |
+| `v3.2-top.png` | 3D render, top view. |
+
+When re-exporting Gerbers, pass the layer list explicitly — the default sweeps
+in Fab, Courtyard, User_\*, Adhesive and Margin layers, which JLCPCB either
+ignores or misreads:
+
+```
+--layers F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,Edge.Cuts
+```
 
 ---
 
@@ -237,7 +319,8 @@ The PCB is correct (verified via KiCad MCP) and is the artifact that gets fab'd.
 
 ## Revision history
 
-* **2026-07-25 — phantom-power fix (v3.2 pending).** Kelly's v2 board drew 14.44 mA at idle — about a week of battery life against a claimed "months". Root cause: the unpowered DY-SV17F was being fed through its input-protection diodes from two always-on sources, `IO0` (firmware idled D6 HIGH) and `CON2` (jumper rail bonded to the Pro Mini's always-on `VCC`). Both closed; idle current is now **0.15 mA**, measured in series on the battery + line. Firmware `v2/firmware/main.cpp` updated: D6 idles LOW, `sleep_bod_disable()` added, `BOOT_MS` 50 → 1000 (a module that is no longer pre-warmed by phantom power needs a real cold-boot delay). `build_v3.py` still needs the `/V33` net split — see *Phantom power* above. — Claude (with Kelly).
+* **2026-07-25 — phantom-power fix (v3.2 pending).** Kelly's v2 board drew 14.44 mA at idle — about a week of battery life against a claimed "months". Root cause: the unpowered DY-SV17F was being fed through its input-protection diodes from two always-on sources, `IO0` (firmware idled D6 HIGH) and `CON2` (jumper rail bonded to the Pro Mini's always-on `VCC`). Both closed; idle current is now **0.15 mA**, measured in series on the battery + line. Firmware `v2/firmware/main.cpp` updated: D6 idles LOW, `sleep_bod_disable()` added, `BOOT_MS` 50 → 1000 (a module that is no longer pre-warmed by phantom power needs a real cold-boot delay). — Claude (with Kelly).
+* **2026-07-25 — v3.2 PCB, fabrication-ready.** The board Kelly can solder without a single flying wire. Three electrical fixes in `build_v3.py`: the `/V33` split (`/V33_MCU` for the Pro Mini, gated `/V33` for the module + jumper rail) closing the CON2 phantom-power path; Q3 reverse-polarity FET re-oriented (drain→`/VBATT`, source→`/VSYS` — it was backwards in v3.1, i.e. no protection at all); a second Pro Mini ground bonded on `J5.2`. Placement fixed so nothing sits under either module body — R1, C2, C3 and TP1 were all evicted. Full assembly silkscreen added: chamfered body outlines, all 42 module pin names, jumper straps, connector polarity. Board fully autorouted headless (148 tracks, 0 unconnected, 0 DRC violations). New: `kicad/route_v3.py` (routing pipeline) and `kicad/verify_v3.py` (the pre-fab gate — run it, `PASS` or don't fab). — Claude.
 * **2026-06-07 — v3.1 mode-select + trigger-pin fix.** Kelly's v2 board (built with flying-wire workaround) was silent. Debug session revealed three doc bugs that were inherited by v3: (a) wrong CON1/CON2/CON3 truth table in this file, (b) `/TRIG_OUT` routed to module RX/IO1 instead of TX/IO0 (in Independent Mode 0, IO0 plays 00001.mp3 and IO1 plays 00002.mp3), (c) firmware D7 `INPUT_PULLUP` silently changed the mode-select at boot. All three corrected here and propagated to `kicad/build_v3.py`. New BOM item: 10 kΩ pull-down R3 on CON3. — Claude (with Kelly).
 * **2026-05-20 — v3 re-spin.** All six v2 bugs corrected via `kicad/build_v3.py`. Footprint pitch 2.5 mm metric (was 2.54 mm imperial); row pitch 20.5 mm (was 17.78 mm). User Kelly calipered the physical DY-SV17F: 26.3 × 23.08 mm outer. Routing left for the GUI autorouter. — Claude.
 * 2026-05-19 — Initial file. Created after user Kelly identified five Claude-introduced bugs in the v2 PCB during build of the first board. Pinouts verified against physical HiLetgo Pro Mini (B07RS911JD) and DY-SV17F (B0BPSPPW52) modules by Kelly. — Claude (with Kelly).

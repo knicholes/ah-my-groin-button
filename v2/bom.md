@@ -20,7 +20,7 @@ enclosure-fit, or replacement-order work.
 | [B00XW2NPTG](https://www.amazon.com/dp/B00XW2NPTG) | Adafruit ADA1313 Speaker, 3″ / 8 Ω / 1 W | SPK. |
 | [B08RHFLH1K](https://www.amazon.com/dp/B08RHFLH1K) | Todiys 100 pc AO3401A SOT-23 P-MOSFET | Q1, Q3. Same part for both. |
 | [B0D69KD677](https://www.amazon.com/dp/B0D69KD677) | 18-value SOT-23 BJT kit, 180 pcs total | Q4. Use the 2N3904 strip (= MMBT3904, SMD code `1AM`). |
-| [B09538ZBCR](https://www.amazon.com/dp/B09538ZBCR) | 60-value 0805 SMD resistor kit, 1500 pcs | R1 (10 kΩ), R2 (100 kΩ). |
+| [B09538ZBCR](https://www.amazon.com/dp/B09538ZBCR) | 60-value 0805 SMD resistor kit, 1500 pcs | R1 (10 kΩ), R2 (100 kΩ), R3 (10 kΩ — CON3 pull-down, added v3.1). |
 | [B0F5QB3S8V](https://www.amazon.com/dp/B0F5QB3S8V) | 30-value 0805 SMD ceramic cap kit, 600 pcs | C2, C3, C5, C6 (0.1 µF + 10 µF values). |
 | [B0GMKLB2QM](https://www.amazon.com/dp/B0GMKLB2QM) | 24-value electrolytic capacitor kit, 680 pcs | C1 (1000 µF), C4 (100 µF). |
 | [B0B77CSH85](https://www.amazon.com/dp/B0B77CSH85) | ALAMSCN JST-XH 2.54 mm connector kit, 30 pairs, includes pin headers + crimped wires | J1, J2, J3. Both PCB-mount male + wire-side female. |
@@ -29,6 +29,25 @@ enclosure-fit, or replacement-order work.
 **Cancelled (do not order)**: ~~B0DFGZC8YZ~~ (Keszoox JST-PH 2.0 mm female-only kit — wrong pitch and missing PCB headers).
 
 **Total spent on v2-new parts**: ~$110.
+
+### Pin headers for a v3 board (2026-07-25)
+
+A v3 board plugs both modules straight in, so the headers get soldered to the
+*modules*, not to the PCB. Two different pitches are involved and they are not
+interchangeable:
+
+| For | Qty | Pitch | Where it comes from |
+| --- | --- | --- | --- |
+| Pro Mini long edges (J4, J5) | 2 × 12 pins | 2.54 mm | The JST-XH kit (B0B77CSH85) includes plain 0.1″ header strip — snap to length. |
+| Pro Mini FTDI header | 1 × 6 pins | 2.54 mm | Same strip. **Must point up, away from the main PCB** — the Pro Mini sits fully inside the board outline and a downward header lands on solid FR4. A right-angle 6-pin header pointing off the top edge is the alternative. See `SOLDERING_GUIDE.md` Step 4-bis. |
+| DY-SV17F long edges (J6, J7) | 2 × 9 pins | **2.50 mm metric** | **The strips that ship with the DY-SV17F modules.** Do not substitute 2.54 mm from the JST kit — over nine pins the error accumulates to 0.36 mm and the last pin will not enter its hole. This is the same class of mistake that killed the v2 board. |
+
+If you ever need to buy the 2.50 mm strip separately, search specifically for
+`2.5mm pitch pin header single row` — "2.54mm" and "0.1 inch" listings are the
+wrong part.
+
+**No hookup wire is needed for a v3 build.** The ~12 lengths of 28 AWG the v2
+instructions called for were the flying-wire workaround; v3 has none.
 
 ---
 

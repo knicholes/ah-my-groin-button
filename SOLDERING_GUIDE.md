@@ -10,7 +10,7 @@ After following this plan you will be holding a finished device: a 200 × 130 ×
 
 You are starting from:
 
-* a bare custom PCB fabricated to the design in `kicad/ahmygroin.kicad_pcb` (Gerber zip at `kicad/fab/ahmygroin-jlcpcb.zip` — order this from JLCPCB or PCBWay, 5-board minimum, 2.0 mm thickness, HASL finish);
+* a bare custom PCB fabricated to the design in `kicad/ahmygroin.kicad_pcb` (Gerber zip at `kicad/fab/ahmygroin-v3.2-jlcpcb.zip` — order this from JLCPCB or PCBWay, 5-board minimum, 2.0 mm thickness, HASL finish);
 * the kit-form parts listed in `v2/bom.md` (purchased components — Pro Mini, DY-SV17F audio module, AO3401A P-MOSFETs, MMBT3904 NPN, 0805 passives, JST-XH connectors, electrolytics, button, speaker, battery holder);
 * a 3D-printed case from `case/body.stl` and `case/bottom.stl`;
 * the firmware source at `v2/firmware/main.cpp`;
@@ -28,14 +28,14 @@ This plan touches: **hand assembly** (SMD + through-hole soldering, wire crimpin
 
 The novice running this plan should tick each box in the order shown.
 
-- [ ] Step 0 complete — workspace set up, all tools located, parts inventoried against the BOM.
-- [ ] Step 1 complete — six 0805 SMD passives soldered (R1, R2, C2, C3, C5, C6).
+- [ ] Step 0 complete — workspace set up, all tools located, parts inventoried against the BOM, 1:1 paper fit check passed.
+- [ ] Step 1 complete — seven 0805 SMD passives soldered (R1, R2, R3, C2, C3, C5, C6).
 - [ ] Step 2 complete — three SOT-23 transistors soldered (Q1, Q3, Q4) with correct orientation.
 - [ ] Step 3 complete — two through-hole electrolytic capacitors soldered (C1, C4) with correct polarity.
-- [ ] Step 4 complete — module header pins soldered to the PCB (J4 only for the Pro Mini left side — J5, J6, J7 all left empty per the *Hardware erratum*).
-- [ ] Step 5 complete — mode-select jumper pins soldered (J8, J9, J10) and shunts installed per the errata-revised table (J8 1-2 GND, J9 2-3 V33, J10 unshunted with 10 kΩ pull-down — or J10 bare for the no-resistor fallback). Configures Independent Mode 0.
+- [ ] Step 4 complete — all four module headers soldered to the PCB (J4, J5 for the Pro Mini; J6, J7 for the DY-SV17F).
+- [ ] Step 5 complete — mode-select jumper pins soldered (J8, J9, J10) and shunts installed per the silkscreen (J8 1-2, J9 2-3, J10 none). Configures Independent Mode 0.
 - [ ] Step 6 complete — three JST-XH connectors soldered (J1, J2, J3).
-- [ ] Step 7 complete — Pro Mini soldered onto J4 with right-side pins trimmed and 2 power flying wires (`RAW`/`VCC` → J5 pads 12/11); DY-SV17F hot-glued to the case off-PCB; 10 flying wires from module pin tips to PCB nets per the errata-revised wire table.
+- [ ] Step 7 complete — Pro Mini plugged into J4 + J5 and soldered; DY-SV17F plugged into J6 + J7 and soldered. **No flying wires anywhere.**
 - [ ] Step 8 complete — external wires crimped onto JST-XH housings: battery cable to J1-mate, button cable to J2-mate, speaker cable to J3-mate.
 - [ ] Step 9 complete — `00001.mp3` loaded onto DY-SV17F's onboard flash over USB.
 - [ ] Step 10 complete — `v2/firmware/main.cpp` flashed to the Pro Mini via FTDI.
@@ -150,14 +150,16 @@ The authoritative BOM is at `v2/bom.md`. The table here is a working subset repr
 * Ref `Q4` — MMBT3904 SOT-23 NPN BJT, marked `1AM` on the package. From the SMD BJT kit (Amazon B0D69KD677), the strip labelled `2N3904 / MMBT3904`.
 * Ref `R1` — 10 kΩ 0805 resistor. From the resistor kit (Amazon B09538ZBCR), labelled `10K` or `103` on the strip.
 * Ref `R2` — 100 kΩ 0805 resistor. Same kit, labelled `100K` or `104`.
+* Ref `R3` — 10 kΩ 0805 resistor (same value and strip as R1). CON3 mode-select pull-down, added in v3.1. On a v3 board this is a normal SMD part on the board — it is *not* the hand-soldered resistor across a jumper that the old v2 instructions described.
 * Ref `C2`, `C6` — 10 µF X5R 0805 ceramic. From the ceramic-cap kit (Amazon B0F5QB3S8V), labelled `10uF`. These two values are interchangeable for our purposes; if the kit labels them `106` that is the EIA code for 10 µF.
 * Ref `C3`, `C5` — 0.1 µF X7R 0805 ceramic. Same kit, labelled `100nF` or `0.1uF` or `104` (EIA code).
 * Ref `C1` — 1000 µF / 10 V or higher radial electrolytic, D = 10 mm, lead pitch = 5 mm. From the electrolytic kit (Amazon B0GMKLB2QM).
 * Ref `C4` — 100 µF / 10 V or higher radial electrolytic, D = 6.3 mm, lead pitch = 2.5 mm. Same kit.
 * Ref `J1`, `J2`, `J3` — JST-XH 2-pin, 2.50 mm pitch, vertical PCB-mount male header. From the connector kit (Amazon B0B77CSH85). The kit also includes pre-crimped wire-side female housings.
-* Ref `J4` — 1 × 1 × 12-pin 2.54 mm-pitch single-row male pin header, to mate the Pro Mini's *left side* to the PCB. From the connector kit. (J5 is not populated — see *Hardware erratum* bug #5. The second 1 × 12 strip is unused for this build.)
-* Ref `J6`, `J7` — **not populated.** See the *Hardware erratum* section. Both 1 × 8 pin-header strips from the connector kit are unused for this build.
-* ~12 × 60 mm lengths of 28 AWG stranded silicone-insulated hookup wire — 10 for the DY-SV17F flying wires (Step 7C) and 2 for the Pro Mini `RAW`/`VCC` flying wires (Step 7A-bis). Any colour; one bundle.
+* Ref `J4`, `J5` — the Pro Mini's two long edges, 12 holes each, 2.54 mm pitch, 15.24 mm (0.6″) apart. You do **not** buy a separate part for these: solder two 1 × 12 male pin headers to the *Pro Mini* pointing down, and those pins drop straight through the PCB's J4/J5 holes. Snap the two 12-pin strips from the connector kit (Amazon B0B77CSH85).
+* Ref `J6`, `J7` — the DY-SV17F's two long edges, 9 holes each, **2.50 mm metric pitch**, 20.5 mm apart. Same idea: the module's own downward-pointing pins go through the PCB. **Use the header strips that shipped with the DY-SV17F** — they are 2.50 mm by definition. Do not substitute a 2.54 mm imperial strip from the connector kit; over nine pins the error accumulates to 0.36 mm and the last pin will not enter its hole. Your modules from the 2-pack may already have headers soldered on from the v2 build; those are the right ones.
+* Ref `U1` FTDI programming header — 1 × 6 male pin header, 2.54 mm, soldered to the Pro Mini's short-edge FTDI pads **pointing up, away from the main PCB.** See the note in Step 7A; getting this backwards is the one remaining way to make the board unprogrammable after assembly.
+* No hookup wire. **A v3 build has no flying wires.** If you find yourself reaching for wire, stop and re-read the *v3.2 status* section — you are following v2 instructions.
 * Ref `J8`, `J9`, `J10` — 3 × 1 × 3-pin 2.54 mm-pitch single-row male pin headers, for DY-SV17F mode-select. From the connector kit. Plus three 2.54 mm jumper shunts (the small plastic-and-metal caps that bridge two adjacent header pins).
 * Ref `H1`, `H2`, `H3`, `H4` — M3 mounting holes; not parts, just plated-through holes on the PCB. The corresponding hardware (4 × M3 × 25 mm countersunk screws, 4 × M3 brass heat-set inserts) is in your fastener bag.
 * Off-board: EG STARTS 100 mm Big Dome arcade button (already owned, ASIN B01LZMANZ7); LAMPVPATH 3 × AA battery holder with on/off switch and leads (ASIN B07C6XC3MP); Adafruit ADA1313 3″ / 8 Ω / 1 W speaker (ASIN B00XW2NPTG); fresh 3 × AA alkaline cells.
@@ -168,19 +170,62 @@ You will work in twelve numbered steps. Steps 1–6 build the populated PCB star
 
 You will not solder anything until you have read each step's full text once.
 
-## v2 → v3 status (this guide is for **v3** boards, post-2026-05-20)
+## v3.2 status — read this before anything else (2026-07-25)
 
-The six layout bugs that triggered the original *Hardware erratum* section have all been fixed in v3 (re-spin commit on 2026-05-20). The v3 PCB at `kicad/ahmygroin.kicad_pcb` has correct DY-SV17F footprints (1 × 9 pads, 2.5 mm metric pitch, 20.5 mm row pitch), correct pin assignments, correct CON1/CON2/CON3 routing intent in the netlist, correct Pro Mini RAW/VCC pad positions, J1 / J3 `+`/`−` silkscreen, and a V33 test point. The detailed v3 reference is `PINOUTS.md`.
-
-**If you are building a v2 board** (fabricated from a pre-v3 commit): you need the flying-wire workaround. Recover the original *Hardware erratum* + "Errata-revised" step notes by running:
+**Which board am I holding?** Look at the silkscreen along the bottom edge. A v3.2
+board reads:
 
 ```
-git show <pre-v3-commit-hash>:SOLDERING_GUIDE.md
+AH! MY GROIN!  v3.2
+IDLE 0.15mA - NO WIRE LINKS
 ```
 
-(the pre-v3 hash is the parent of the commit titled "v3 PCB re-spin").
+If you see that, this guide applies as written and **you will not solder a single
+piece of wire.** Every connection is a copper trace. Both modules plug into their
+headers and that is the whole story.
 
-**If you are building a v3 board**: follow the original Steps 4, 5, 6, 7, 11.2 below as written, but install **all** module headers (J4, J5, J6, J7) normally. Ignore the "Errata-revised" callouts that remain inline in the step text — they describe the v2 workaround and no longer apply. (TODO for a future pass: strip the inline "Errata-revised" blocks now that v3 is the default. They are harmless to a v3 builder who knows to skip them.)
+If your board has no version text on it, it is a v2 board and this guide is wrong
+for it. v2 needs the ten-flying-wire workaround; recover those instructions with:
+
+```
+git show c28d509:SOLDERING_GUIDE.md
+```
+
+### What changed, and why you should trust the v3.2 board
+
+v2 had six layout bugs, all mine (Claude's). v3 (2026-05-20) fixed the geometry;
+v3.1 (2026-06-07) fixed the mode-select and trigger pin; v3.2 (2026-07-25) fixed
+the power topology and the assembly ergonomics. The v3.2 board:
+
+| Was broken in | What it is now |
+|---|---|
+| v2 | DY-SV17F footprint is 2 × 9 pads at **2.5 mm metric** pitch, 20.5 mm row pitch — matches the real DIP-18 module. (v2 had 2 × 8 at DFPlayer-Mini geometry.) |
+| v2 | J6/J7 pin assignments match the real module pinout, top-to-bottom. |
+| v2 | `CON1`/`CON2`/`CON3` are actually routed from the jumpers to the module. |
+| v2 | Pro Mini `RAW` and `VCC` land on J5 pads 1 and 4 — the real power pins, not D10/D11. |
+| v3 | `/TRIG_OUT` goes to **IO0**, not IO1. In Independent Mode 0 that is the pin that plays `00001.mp3`. |
+| v3 | `R3`, a 10 kΩ CON3 pull-down, is a normal SMD part on the board. |
+| v3.1 | `/V33` is split: the module's gated V33 output feeds the jumper rail; the Pro Mini's always-on `VCC` goes nowhere near it. This is the 14 mA → 0.15 mA fix. |
+| v3.1 | Q3, the reverse-polarity FET, is oriented correctly. It was backwards — meaning v3.1 boards had *no* reverse-polarity protection at all despite the part being fitted. |
+| v3 | Nothing is placed under either module body. R1, C2, C3 and TP1 were moved out. |
+| v3 | Full assembly silkscreen: module outlines, all 42 module pin names, jumper settings printed next to each jumper. |
+
+The board was verified before fabrication by `kicad/verify_v3.py`, which checks
+module-body keep-outs, the electrical assertions above, silkscreen-over-pad, and
+routing completeness. It reported `PASS`, 0 DRC violations, 0 unconnected.
+
+### The one thing the board cannot check for you
+
+Footprint pitch. Do the **1:1 paper fit check in Step 0** before you solder
+anything. It takes five minutes and it is the only check that would have caught
+the bug that killed v2.
+
+### Ignore the strikethrough sections
+
+Anything below labelled *"Errata-revised"* or inside the collapsed *"Legacy v2
+hardware erratum"* block describes the v2 flying-wire workaround. It does not
+apply to your board. Where a step has been rewritten for v3.2 it says so in its
+heading.
 
 ---
 
@@ -248,15 +293,53 @@ Inventory check: take each item from the BOM and physically locate it. The SMD p
 
 Read the rest of this document end-to-end *once* before applying any heat.
 
+#### 0-bis — The 1:1 paper fit check (do not skip this)
+
+Five minutes here is the cheapest insurance in the whole build. A footprint that
+is subtly the wrong pitch looks completely normal on screen and completely normal
+on the bare board, and you only discover it after you have soldered eleven SMD
+parts onto a board that the modules will never seat on. That is exactly how v2
+died.
+
+1. Print `kicad/fab/v3.2-fitcheck-1to1.pdf` **at 100 %**. In the print dialog set
+   Scale to "Actual size" or "100%". Turn *off* "Fit to page" and "Shrink
+   oversized pages". This is the step people get wrong.
+2. Take a ruler to the printed board outline — the plain rectangle. It must
+   measure **90.0 mm across and 70.0 mm down**. If it doesn't, your printer
+   scaled the page. Fix the print settings and print again. Do not proceed on a
+   scaled print; it will "prove" a correct footprint is wrong and vice versa.
+3. Lay a physical **DY-SV17F** on its printed footprint, pins down. All nine pins
+   on each side must sit over pad centres *simultaneously*. Sight down the row:
+   if pin 1 is centred and pin 9 is riding the edge of its pad, the pitch is
+   wrong — stop and say so before ordering more boards.
+4. Lay a physical **Pro Mini** on its printed footprint. Twelve pins per side.
+   Same check.
+5. Look at what is printed *inside* the two chamfered rectangles that mark the
+   module bodies. The answer should be: nothing. No resistor, no capacitor, no
+   test point. If there is something in there, it will be permanently buried
+   under a module after assembly.
+
+Only when all five pass do you pick up the iron.
+
 ### Step 1 — Solder the 0805 SMD passives
 
-The 0805 parts on this board are R1 (10 kΩ), R2 (100 kΩ), C2 (10 µF), C3 (0.1 µF), C5 (0.1 µF), and C6 (10 µF). Total: six parts.
+The 0805 parts on this board are R1 (10 kΩ), R2 (100 kΩ), R3 (10 kΩ), C2 (10 µF), C3 (0.1 µF), C5 (0.1 µF), and C6 (10 µF). Total: seven parts.
 
-Find each on the silkscreen. Reference designators are printed near each pair of pads:
+Find each on the silkscreen. Reference designators are printed near each pair of pads. Approximate positions on the v3.2 board, in mm from the top-left corner, if a designator has gone missing under flux:
 
-* R1, R2 are near the Pro Mini headers and the BJT Q4. R1 is the 10 kΩ; R2 is the 100 kΩ.
-* C2, C3 are near the Pro Mini's RAW pin (left side of the Pro Mini footprint).
-* C5, C6 are near the DY-SV17F's V5 pin (left side of the DY-SV17F footprint).
+| Ref | Value | Roughly where |
+|---|---|---|
+| R1 | 10 kΩ | (38, 34) — right of the Pro Mini, below the jumper row |
+| R2 | 100 kΩ | (45, 34) — just right of R1 |
+| R3 | 10 kΩ | (62, 41) — below the DY-SV17F, left of jumper J10 |
+| C2 | 10 µF | (20, 43) — below the Pro Mini body |
+| C3 | 0.1 µF | (24, 43) — right of C2 |
+| C5 | 0.1 µF | (57, 33) — below the DY-SV17F |
+| C6 | 10 µF | (62, 33) — right of C5 |
+
+R1 and R3 are the same value, so mixing them up is harmless. Mixing up R1/R3 with
+R2 is not: R2 is the 100 kΩ gate pull-up for Q1, and a 10 kΩ there fights Q4 hard
+enough to keep the module partly on.
 
 Procedure, per part:
 
@@ -318,28 +401,112 @@ Procedure, per cap:
 5. Solder each lead from the bottom. Feed solder while heating both lead and pad — you should see solder wick up around the lead and form a shiny concave fillet.
 6. Visually verify: cap body sits flush, stripe matches `+` correctly (i.e. the *stripe* is opposite the `+` pad).
 
-### Step 4 — Solder the module pin headers
+### Step 4 — Fit the headers to the two modules (rewritten for v3.2)
 
-**Errata-revised (2026-05-19, corrected twice): only J4 is installed.** See the *Hardware erratum* section above for context. One header, not four: J4 only (Pro Mini left side, 1 × 12 pins). J5 is omitted because the right-side power-pin routing is reversed (bug #5). Both 1 × 8 strips for J6 and J7 are also discarded — the DY-SV17F is mounted off-PCB in Step 7 and every signal is a flying wire.
+On a v3 board the headers belong to the *modules*, not to the PCB. You solder a
+row of male pins onto each long edge of each module, pointing **down**, and in
+Step 7 those pins drop straight through the PCB's holes. Nothing is soldered into
+J4–J7 in this step.
 
-These are simple straight 0.1″ (2.54 mm) male pin headers. The kit ships them as long strips that you snap to length. Snap one 12-pin piece for J4.
+Four header strips, snapped to length:
 
-Procedure, per header:
+| For | Length | Pitch | Source |
+|---|---|---|---|
+| Pro Mini, left edge (→ J4) | 12 pins | 2.54 mm | connector kit |
+| Pro Mini, right edge (→ J5) | 12 pins | 2.54 mm | connector kit |
+| DY-SV17F, left edge (→ J6) | 9 pins | **2.50 mm** | shipped with the module |
+| DY-SV17F, right edge (→ J7) | 9 pins | **2.50 mm** | shipped with the module |
 
-1. Insert the long pins of the header through the PCB *from the bottom*, so the long pins point up through the top of the PCB. The short ends and the plastic spacer remain on the bottom.
-2. Place the PCB flat on the bench with the bottom side facing up. The headers should stand vertically through the board.
-3. Solder one corner pin only. Check from the side that the header is square and vertical, not leaning. If it leans, reheat the corner pin and gently push the header straight before the solder freezes.
-4. Solder the diagonally opposite corner pin. Re-check vertical.
-5. Solder the remaining pins one by one. Each takes about a second of heat plus a touch of solder.
-6. Flip the board over and check from the top side that each pin has a clean fillet (a small ring of solder around the pin) on the top side as well as the bottom.
+**The two pitches are different and they are not interchangeable.** A 2.54 mm
+strip in a DY-SV17F is off by 0.36 mm end-to-end, which is more than half a hole.
+If your DY-SV17F already has headers on it from the v2 build, leave them; they are
+the right ones.
 
-You should end up with a single row of pins for the Pro Mini's left side (J4). The J5, J6, and J7 holes remain empty — Step 7 will solder flying-wire ends directly into them.
+Procedure, per module:
+
+1. Push the header strip's long pins down through the module's holes **from the
+   top** — from the component side — so the long pins stick out underneath.
+   Plastic spacer against the module's underside.
+2. Do both edges at once, then stand the module on a flat surface resting on the
+   pin tips. Gravity holds everything square while you solder. (A solderless
+   breadboard makes a good jig here if you have one.)
+3. Solder one corner pin on each strip. Look at the module from the side: it must
+   sit parallel to the bench, not tilted. Reheat and nudge if it isn't.
+4. Solder the remaining pins, about a second of heat and a touch of solder each.
+5. Under magnification, check every pin has a shiny ring of solder and no two
+   adjacent pins are bridged.
+
+Do this for both modules. When you're done you have two modules that look like
+small IC packages with long legs. Set them aside — they go on in Step 7, after the
+connectors.
+
+#### 4-bis — The FTDI header, and which way it points
+
+The Pro Mini has a sixth row of six holes on one short edge, labelled (in some
+order) `DTR` `TXO` `RXI` `VCC` `GND` `GND`. That is the programming header. Solder
+a 1 × 6 male pin header into it now, while the module is still loose and easy to
+jig.
+
+**The pins must point up, away from the main PCB — the same direction the
+components face, the opposite direction from the twelve pins you just fitted.**
+
+Why this matters: on the v3.2 layout the Pro Mini sits fully inside the board
+outline, with about 5.5 mm of PCB underneath the FTDI edge. A downward-facing FTDI
+header would land on solid board. You would have a finished device you cannot
+reprogram without desoldering the Pro Mini.
+
+Two acceptable choices:
+
+* **Straight header pointing up (recommended).** Simplest, and there is nothing
+  above the Pro Mini to collide with. The FTDI cable plugs down onto it
+  vertically. Needs roughly 15 mm of headroom for the cable's plug body — the case
+  has far more than that.
+* **Right-angle header pointing outward.** Use this if you would rather the cable
+  come in sideways. Fit it so the pins exit *away* from the board, over the top
+  edge, not back across the Pro Mini.
+
+Do not fit a straight header pointing down, and do not leave the FTDI pads bare
+intending to hold wires in the holes while it flashes — that works once, badly,
+and you will want it again the first time you change the audio timing.
+
+#### 4-ter — Remove the Pro Mini's LEDs (optional, but it is worth 1.7 mA)
+
+The finished device idles at 0.15 mA. A lit power LED on the Pro Mini draws about
+**1.7 mA** on its own — more than ten times the entire rest of the board — and it
+turns two years of battery life into about six weeks.
+
+Now, with the module loose and before anything is soldered to the main PCB, is the
+easiest time to remove it:
+
+1. Find the power LED — a tiny SMD LED near the regulator that lights whenever the
+   module has power. On HiLetgo clones there is often a **second** LED near the
+   `D13` pad; check for that one too and take both.
+2. Grip the LED body with tweezers. Heat one end pad, then the other, alternating
+   every second or so until the part releases, then lift it away. Do not pry —
+   the pads tear.
+3. Wick the leftover solder off both pads so nothing shorts later.
+
+This is genuinely optional. The device works fine with the LEDs fitted, it just
+runs the batteries down faster. If you want the visual feedback while debugging,
+leave them on and remove them after bring-up.
 
 ### Step 5 — Solder the mode-select jumper pins and install shunts
 
-**Errata-revised (2026-05-19): the J8/J9/J10 hardware install is unchanged, but the `CON1`/`CON2`/`CON3` nets are not routed to the module footprint. You'll wire each `CON` pin from the module to the middle pin of its jumper in Step 7.**
-
 Three 3-pin headers: J8, J9, J10. These set the DY-SV17F into IO-trigger mode.
+On v3 the `CON1`/`CON2`/`CON3` nets are routed from these jumpers to the module
+footprint in copper, so there is nothing to hand-wire.
+
+**The v3.2 silkscreen tells you the answer.** Printed next to each jumper is the
+setting it wants:
+
+```
+CON1  SHUNT 1-2
+CON2  SHUNT 2-3
+CON3  NO SHUNT
+```
+
+If the board and this document ever disagree, trust the board — it was generated
+from the same source that produced the netlist.
 
 Solder each 3-pin header exactly like the module headers in step 4 — one pin at a time, verify vertical, finish the remaining pins.
 
@@ -355,25 +522,37 @@ So a shunt across pads 1–2 ties that `CON` pin to GND; a shunt across pads 2�
 
 DY-SV17F mode configuration: set the jumpers so the module enters **I/O Independent Mode 0** — in that mode, grounding the module's IO0 pin plays `00001.mp3` once, then the module idles. The real datasheet truth table is in `PINOUTS.md`. We need `CON1 = GND`, `CON2 = V33`, `CON3 = GND`.
 
-`CON3` is dual-purpose — sampled for mode-select during the first ~30 ms after power-on, then it switches to driving the BUSY output. Hard-shorting it to GND would fight the BUSY output; the clean fix is to bias it LOW with a **10 kΩ pull-down resistor** so mode-detect sees LOW but the push-pull BUSY output can still pull the line HIGH afterward.
+`CON3` is dual-purpose — sampled for mode-select during the first ~30 ms after power-on, then it switches to driving the BUSY output. Hard-shorting it to GND would fight the BUSY output. That is why J10 gets **no shunt**: on a v3 board, `R3` (the 10 kΩ 0805 you soldered in Step 1) biases the line LOW, so the chip's boot-time mode-detect reads LOW while the push-pull BUSY output can still drive the line HIGH afterwards. The resistor is on the board; there is nothing to fit across the jumper.
 
-* J8 → shunt pads 1–2 (CON1 ↔ GND).
-* J9 → shunt pads 2–3 (CON2 ↔ V33).
-* J10 → no shunt **AND** solder a 10 kΩ resistor across J10 pads 1–2 (CON3 ↔ GND via the pull-down).
-
-If you don't have a 10 kΩ resistor handy and want to skip BUSY readout for now, the empirically-working fallback is **J10 unshunted with no pull-down resistor**, *plus* a firmware tweak: set D7 as `INPUT` (no internal pullup) so the Pro Mini doesn't pull CON3 HIGH at boot, and replace the firmware's `while (BUSY == HIGH)` loop with a fixed playback delay. This is what Kelly's first v2 board runs (2026-06-07). Add the 10 kΩ later if you want clean BUSY-based timing.
+* J8 → shunt across pads 1–2 (CON1 ↔ GND).
+* J9 → shunt across pads 2–3 (CON2 ↔ V33).
+* J10 → **no shunt.** R3 does the job. Leave the header bare; it stays available as an override during bring-up if you ever need to force CON3 high or low by hand.
 
 If you can't find shunts, you can hand-solder a wire bridge between the two pins instead. Less convenient to reconfigure but works fine.
 
-The V33 rail on J8/J9/J10 pad 3 needs a feed too: it comes from the DY-SV17F's left-side pin 5 (V33 output) via a flying wire installed in Step 7.
+The V33 rail on J8/J9/J10 pad 3 is fed by copper from the DY-SV17F's own `V33`
+output pin (module left-edge pin 5). That is deliberate and it is the single most
+important electrical decision on this board:
 
-> **Critical (added 2026-07-25): the jumper rail's V33 must come from the *module's* V33 output and nothing else.**
+> **Why the jumper rail must be fed by the *module's* V33 and nothing else.**
 >
-> On the v2/v3.1 boards the Pro Mini's `VCC` pad also lands on the same `/V33` net. That rail is powered whenever the batteries are switched on, even with the module gated off — so `CON2`, shunted to it, sits at 3.3 V forever. Current flows backwards into the powered-down module through its input protection diodes and half-wakes the chip. On Kelly's board this alone cost about **8.7 mA of permanent idle draw** — the difference between a week and two years of battery life.
+> On the v2 and v3.1 boards the Pro Mini's `VCC` pad landed on the same `/V33` net.
+> That rail is live whenever the batteries are switched on, even with the module
+> gated off — so `CON2`, shunted to it, sat at 3.3 V forever. Current flowed
+> backwards into the powered-down module through its input protection diodes and
+> half-woke the chip. On Kelly's board this alone cost about **8.7 mA of permanent
+> idle draw** — the difference between a week and two years of battery life.
 >
-> Do not connect the Pro Mini's `VCC` pad to the J8/J9/J10 pad-3 rail. If you are building on a board where they already share a net, break that link and run `CON2` straight to the module's own `V33` pin instead. Full explanation and diagnostic fingerprints: `PINOUTS.md` → *Phantom power*.
+> **On a v3.2 board this is already fixed in copper.** The net is split: `/V33_MCU`
+> is the Pro Mini's always-on `VCC` and goes nowhere; `/V33` is the module's gated
+> output and feeds only the jumper rail. It collapses to 0 V the instant Q1 closes,
+> which is exactly what you want. You don't have to do anything — just don't
+> "helpfully" bridge the Pro Mini's `VCC` to a jumper pad.
 >
-> The same rule governs every other line into the module, which is why the firmware idles D6 (`TRIG_OUT`) **LOW** rather than HIGH.
+> Full explanation and diagnostic fingerprints: `PINOUTS.md` → *Phantom power*.
+>
+> The same rule governs every other line into the module, which is why the firmware
+> idles D6 (`TRIG_OUT`) **LOW** rather than HIGH.
 
 ### Step 6 — Solder the JST-XH 2-pin connectors
 
@@ -390,112 +569,123 @@ Procedure, per connector:
 3. Verify the connector is flush and the keyed face points outward. If not, reheat and adjust.
 4. Solder the other pin.
 
-### Step 7 — Mount the Pro Mini, then hand-wire the DY-SV17F
+### Step 7 — Plug in the two modules (rewritten for v3.2 — no wires)
 
-**Errata-revised (2026-05-19).** The Pro Mini half of this step is unchanged. The DY-SV17F half is rewritten: the module is plugged in on its right side only (into J6) and every left-side signal is run as a flying wire.
+This is the step that used to take twelve flying wires and an hour of squinting.
+On a v3.2 board it is two modules, forty-two pins, and no wire at all.
 
-#### 7A — Pro Mini (left side via J4, right side hand-wired)
+Both modules mount **component-side up**, on the top of the PCB, with their pins
+going down through the board and soldered on the bottom.
 
-**Errata-revised (2026-05-19, corrected).** The Pro Mini's left side plugs into J4 normally. The right side does not engage J5 — it's trimmed and hand-wired for power.
+#### 7A — Orientation: read the silkscreen, not this document
 
-Pin orientation on J4 (verified via the KiCad MCP — pad nets confirmed):
+The v3.2 board prints the *name of every module pin* next to its hole. The
+DY-SV17F's own silkscreen prints the same names next to the same pins. So the
+orientation rule is simply:
 
-| J4 pad | Pro Mini pin | Net |
-|---|---|---|
-| 1 (square pad, top) | `TXO` / `TX1` / `D1` | unrouted |
-| 2 | `RXI` / `RX0` / `D0` | unrouted |
-| 3 | `RST` | unrouted |
-| 4 | `GND` | /GND |
-| 5 | `D2` | /BTN_IN |
-| 6 | `D3` | unrouted |
-| 7 | `D4` | unrouted |
-| 8 | `D5` | /GATE_CTRL |
-| 9 | `D6` | /TRIG_OUT |
-| 10 | `D7` | /BUSY_IN |
-| 11 | `D8` | unrouted |
-| 12 (bottom) | `D9` | unrouted |
+> **Turn each module until its printed pin names line up with the board's printed
+> pin names. There is exactly one rotation where they all match.**
 
-So the Pro Mini's `TXO` pin sits on J4 pad 1 (the square pad). The FTDI 6-pin header overhangs the *top* edge of the PCB (so an FTDI cable plugs in without removing the module).
+That is the whole check, and it is self-verifying — if you have it backwards,
+`SPK+` will be sitting over the hole labelled `CON1` and you will see it
+immediately.
 
-Procedure:
+For reference, what the board expects:
 
-1. **Before placing the Pro Mini on the board**: trim the Pro Mini's right-side pin header flush with the Pro Mini's PCB. The cleanest way is to snap or cut off the right-side male pin strip entirely *before* soldering it to the Pro Mini, if it isn't already on. If it's already soldered on, clip each pin flush with diagonal cutters so nothing protrudes below the Pro Mini's PCB on the right edge. The Pro Mini's right-side solder pads (with the `RAW`, `GND`, `RST`, `VCC`, `A3`–`A0`, `D13`–`D10` silkscreen labels) remain accessible from the *top* — those are the wire-anchor pads for sub-step 7A-bis below.
-2. Position the Pro Mini above J4's upward-pointing pins, with the left-side solder pads of the Pro Mini aligned over J4's twelve pins. The `TXO` pad of the Pro Mini must be over J4 pad 1 (the square pad at the top). The FTDI 6-pin programming header overhangs the top edge of the PCB.
-3. Press the module down so J4's pins protrude through the Pro Mini's left-side pads. The Pro Mini's *right-side* edge hangs out unsupported (because J5 has no pins). That's expected.
-4. Solder J4 pad 1 (the `TXO` pin) from the top of the Pro Mini. Verify flush against J4's plastic spacer.
-5. Solder J4 pad 12 (the `D9` pin) — the diagonal corner. Verify flush.
-6. Solder the remaining ten J4 pins from the top of the Pro Mini.
-7. **Then flip the assembly over and solder each of those twelve pins from the bottom of the main PCB as well.** This is the "soldered on both sides" requirement — it doubles the mechanical attachment for J4.
-8. Right back-up the cantilevered right side of the Pro Mini with a hot-glue blob between the Pro Mini's bottom-right edge and the PCB top. The glue is structural — J4 alone can't take a drop without the right side levering off.
+**Pro Mini** — `TXO` at the top of the left column (J4 pad 1), `RAW` at the top of
+the right column (J5 pad 1). The FTDI header ends up pointing at the **top edge of
+the PCB**.
 
-#### 7A-bis — Pro Mini power flying wires (2 wires)
-
-Two more flying wires, one for `RAW` and one for `VCC`:
-
-| # | Pro Mini solder pad | PCB landing point | PCB net | Purpose |
+| J4 (left column, top → bottom) | Net | | J5 (right column, top → bottom) | Net |
 |---|---|---|---|---|
-| P1 | **`RAW`** (top of right edge — first pad from the FTDI end) | **J5 pad 12** at (30.24, 35.94) | /VSYS | Battery feed to the Pro Mini |
-| P2 | **`VCC`** (4th from top on right edge) | **J5 pad 11** at (30.24, 33.4) | /V33 | Pro Mini's 3.3 V regulator output going to the V33 rail |
+| `TXO` | — | | `RAW` | /VSYS |
+| `RXI` | — | | `GND` | /GND |
+| `RST` | — | | `RST` | — |
+| `GND` | /GND | | `VCC` | — (deliberately unconnected) |
+| `D2` | /BTN_IN | | `A3` | — |
+| `D3` | — | | `A2` | — |
+| `D4` | — | | `A1` | — |
+| `D5` | /GATE_CTRL | | `A0` | — |
+| `D6` | /TRIG_OUT | | `D13` | — |
+| `D7` | /BUSY_IN | | `D12` | — |
+| `D8` | — | | `D11` | — |
+| `D9` | — | | `D10` | — |
 
-> **Skip wire P2 (2026-07-25).** `/V33` is the mode-select jumper rail, and it must be fed only by the DY-SV17F's own `V33` output (Step 7C wire #5) so it goes dead when the module is gated off. Bonding the Pro Mini's always-on `VCC` to it ties two regulator outputs together *and* phantom-powers the module through `CON2` — about 8.7 mA of permanent idle draw. Nothing in this build needs the Pro Mini's `VCC` brought out to the board. See `PINOUTS.md` → *Phantom power*.
+`VCC` having no net is correct and intentional — see the phantom-power note in
+Step 5. Nothing on this board consumes the Pro Mini's regulator output.
 
-Procedure per wire — same as the DY-SV17F flying wires in Step 7C:
+**DY-SV17F** — `SPK+` at the top of the left column (J6 pad 1), `IO0` at the top
+of the right column (J7 pad 1).
 
-1. Pre-tin the Pro Mini's `RAW` (or `VCC`) solder pad with a small bead of solder.
-2. Pre-tin the wire end. Touch it to the Pro Mini pad; reflow the bead. The wire fuses onto the pad.
-3. Route the wire across the PCB top to the J5 destination hole.
-4. Insert the other wire end into the J5 hole from the top; solder from the bottom; trim flush.
-5. Hot-glue the wire bundle at the Pro Mini end and at the PCB end for strain relief.
-
-After Steps 7A and 7A-bis, the Pro Mini is mechanically anchored to J4 + hot glue, electrically connected to the board via J4's twelve pins + two power flying wires, and the right-side digital pins (`D10`–`D13`, `A0`–`A3`, `RST`, `GND`) hang in the air un-soldered (which is correct — none of them are used by the v2 firmware).
-
-#### 7B — Mount the DY-SV17F off-PCB
-
-The module does not plug into either J6 or J7. The bottom of the case (or the side of the case if there's space) is the new home:
-
-1. Pick a flat spot inside the case that's clear of the PCB outline and the speaker. Roughly 30 × 25 mm of clearance is enough.
-2. Hot-glue the DY-SV17F to that spot, component side facing up so the USB pads are accessible for re-loading the audio file. Orient with the pin-headers projecting toward the PCB — you want short flying wires, not long ones snaking across the case.
-3. Confirm the unit can still close — the DY-SV17F is ~5 mm tall plus another ~3 mm of pin headers below it, so the chosen spot needs ~10 mm of vertical clearance below the case lid.
-
-The module's two 9-pin headers (already soldered on, projecting downward) are now wire-anchor terminals. They don't go into PCB holes; they hang in the air below the module and you'll solder flying wires to the sides of the pin tips.
-
-#### 7C — DY-SV17F flying wires (the ten hand-wired signals)
-
-Use ~28 AWG silicone-insulated stranded hookup wire. Pre-cut to ~60 mm lengths (long enough to reach the PCB from wherever you hot-glued the module in 7B — adjust to fit your case layout). Strip and tin 2 mm at each end.
-
-Each wire goes from one of the DY-SV17F's pin-header tips (used as a terminal post — tin and solder to the side of the pin) to a routed hole on the PCB. Coordinates below are the (x, y) mm position on the PCB top side, in case the silkscreen reference designator has gotten obscured by flux.
-
-**The ten wires:**
-
-| # | Module pin (location on DY-SV17F) | PCB landing point | PCB net | Purpose |
+| J6 (left column, top → bottom) | Net | | J7 (right column, top → bottom) | Net |
 |---|---|---|---|---|
-| 1 | Right side pin 1 (`TX/IO0`) | **J6 pad 2** at (55, 7.54) | /TRIG_OUT | Trigger pulse from Pro Mini D6. In Independent Mode 0, IO0 plays `00001.mp3`. (The original guide had wire #1 on pin 2 / IO1 — that was wrong; IO1 would play `00002.mp3`.) |
-| 2 | Right side pin 9 (`GND`, bottom of right column) | Any GND hole — **J7 pad 3** at (72.78, 10.08) is closest | /GND | Module ground reference |
-| 3 | Left side pin 1 (`SPK+`, top) | **J7 pad 8** at (72.78, 22.78) | /SPK_P | Speaker output + |
-| 4 | Left side pin 2 (`SPK-`) | **J7 pad 7** at (72.78, 20.24) | /SPK_N | Speaker output − |
-| 5 | Left side pin 5 (`V33`) | **J8/J9/J10 pad 3** (any of them — all are the same /V33 net; J10 pad 3 at (70.08, 50) is closest) | /V33 | Feeds the V33 rail to the mode-select jumpers |
-| 6 | Left side pin 6 (`V5`) | **J7 pad 2** at (72.78, 7.54) | /VDFP | Module power input (gated by Q1) |
-| 7 | Left side pin 7 (`CON3/BUSY`) | **J7 pad 5** at (72.78, 15.16) | /BUSY_IN | BUSY readout to Pro Mini D7. This pin is also where the CON3 mode-select state is sampled at boot — see Step 5 for the 10 kΩ pull-down (or the no-resistor fallback). Firmware must keep D7 as `INPUT` (no pullup) or the pullup will yank CON3 HIGH at boot and break mode-select. |
-| 8 | Left side pin 8 (`CON2`) | **J9 pad 2** at (57.54, 50) | /CON2 | Mode-select CON2 to its jumper |
-| 9 | Left side pin 9 (`CON1`, bottom) | **J8 pad 2** at (47.54, 50) | /CON1 | Mode-select CON1 to its jumper |
+| `SPK+` | /SPK_P | | `IO0` | /TRIG_OUT |
+| `SPK-` | /SPK_N | | `IO1` | — |
+| `DACL` | — | | `IO2` | — |
+| `DACR` | — | | `IO3` | — |
+| `V33` | /V33 | | `IO4` | — |
+| `V5` | /VDFP | | `IO5` | — |
+| `BUSY` | /BUSY_IN | | `IO6` | — |
+| `CON2` | /CON2 | | `IO7` | — |
+| `CON1` | /CON1 | | `GND` | /GND |
 
-Optional tenth wire — only if you installed the 10 kΩ pull-down on J10 pads 1–2 (per Step 5) and want CON3 bonded to that pull-down via the jumper rail rather than via the BUSY readout wire alone:
+Note the trigger is on **IO0**, the first pin of the right column. In Independent
+Mode 0 that is the pin that plays `00001.mp3`. (v3.0 had it on IO1, which plays
+`00002.mp3` — a file that does not exist, so the board was silent.)
 
-| 10 | Left side pin 7 (`CON3/BUSY`) also runs to | **J10 pad 2** at (67.54, 50) | /CON3 | Bonds the BUSY line to the CON3 jumper net. The `/BUSY_IN` and `/CON3` PCB nets are not connected to each other by default — wire #10 creates that bond. |
+#### 7B — Seat and solder the DY-SV17F
 
-Wire #10 is **not** needed for the no-resistor fallback (where J10 is bare). It is recommended for the 10 kΩ pull-down configuration so that CON3 sees the pull-down via two independent paths.
+Do the DY-SV17F first; it is the fussier of the two because of the 2.5 mm pitch.
 
-Right-side pins 2 (`RX/IO1`) and 3–8 (`IO2`–`IO7`) and left-side pins 3 (`DACL`) and 4 (`DACR`) are intentionally left disconnected.
+1. Hold the module over its footprint and lower it straight down. All eighteen
+   pins should enter their holes together with no persuasion. **If you have to
+   push, twist, or splay pins to get it in, stop.** Lift it off and go back to the
+   1:1 paper fit check — a pitch mismatch is the one failure you cannot solder
+   your way out of.
+2. With the module seated, look at it edge-on from two directions. The plastic
+   spacers should be flat against the PCB and the module parallel to it.
+3. Flip the whole board over onto a flat surface, module hanging down through the
+   bench... or, easier, prop the board on two blocks so the module hangs free and
+   the bottom of the PCB faces up.
+4. Solder **one pin at each diagonal corner** — J6 pad 1 and J7 pad 9. Then turn
+   the board back over and check the module is still flat and square. This is your
+   last easy chance to fix it; reheat one corner and nudge if needed.
+5. Solder the remaining sixteen pins. About a second of heat and a touch of solder
+   each. Solder should wick up into the hole and form a small shiny cone around
+   the pin.
+6. Inspect under magnification: eighteen cones, no bridges between adjacent pins.
+   At 2.5 mm pitch bridges are unlikely but check anyway.
 
-**Procedure per wire:**
+#### 7C — Seat and solder the Pro Mini
 
-1. Pre-tin the module pin tip with a tiny bead of solder. Pre-tin the wire end.
-2. Touch the wire end to the side of the pin tip; reflow the bead. The wire should fuse onto the side of the pin without sliding off.
-3. Route the wire across the case toward the destination PCB hole. Keep the bundle reasonably tight; ten loose wires that flop around will fatigue at the solder joints under drops.
-4. Insert the other wire end into the destination PCB hole from the top. Solder from the bottom. Trim flush.
-5. After all wires are in place, dab a bead of hot glue along the bundle at the module end and at the PCB end. The glue is structural strain relief — it stops a wire from peeling off its module-pin tip when the unit is dropped.
+Same procedure, twenty-four pins.
 
-After Step 7C, the DY-SV17F is mechanically anchored to the case via the hot-glue blob from 7B, and the flying wires are all in shear (not tension) at both ends. That is correct.
+1. Lower the Pro Mini onto J4 and J5. `TXO` over J4 pad 1, `RAW` over J5 pad 1,
+   FTDI header pointing at the top edge of the board.
+2. Check the FTDI header is pointing **up**, away from the PCB. If it is pointing
+   down you will find out right now, because it will hold the module off the
+   board. Go back to Step 4-bis.
+3. Solder the two diagonal corners — J4 pad 1 and J5 pad 12. Check flat and
+   square.
+4. Solder the remaining twenty-two pins.
+5. Inspect.
+
+Unlike the v2 build, the Pro Mini is now supported on both edges by twenty-four
+soldered pins. **No hot glue is needed** — there is no cantilever to brace.
+
+#### 7D — What you should have
+
+Look at the board. You should see:
+
+* Two modules sitting flat and parallel to the PCB, on the top side.
+* Forty-two solder cones on the bottom side, in four neat rows.
+* Two jumper shunts (J8 and J9) and one bare jumper (J10).
+* Three JST-XH connectors along the bottom edge.
+* **Zero wires.** If there is a wire on this board, something has gone wrong —
+  re-read the *v3.2 status* section at the top of this guide.
+
+Trim any pin that protrudes more than ~2 mm on the bottom side so it can't reach
+anything in the case.
 
 ### Step 8 — Build the external cables
 
@@ -563,33 +753,82 @@ Under magnification, sweep across the board top:
 * every 0805 pad has a small shiny fillet on both ends — no missed pads, no tombstoned (vertical) parts;
 * every SOT-23 transistor has three small fillets, no leg-to-leg bridges, the body sits flat;
 * the two electrolytic caps' bodies sit flush, with their stripes on the correct side (opposite the `+` mark);
-* the four module headers and the three connectors are vertical (not leaning), with each pin showing a clean fillet on both top and bottom;
-* the two modules are seated flush against their bottom headers with both top and bottom solder joints visible.
+* the three JST-XH connectors are vertical (not leaning), with each pin showing a clean fillet on both top and bottom;
+* both modules sit flat and parallel to the PCB, with a solder cone on every one of the forty-two pins on the underside;
+* the jumper shunts are on J8 (pads 1–2) and J9 (pads 2–3), and J10 is bare.
 
 If you see a bridge (a glob of solder spanning two adjacent pads or legs), fix it now: flux, press solder wick onto the bridge, lift wick when it absorbs the solder.
 
-#### 11.2 Continuity check, unpowered
+#### 11.2 Continuity check, unpowered (rewritten for v3.2)
 
-Multimeter in continuity-beep mode. Probe between each pair below; a beep means a short.
+**Nothing is plugged in for this section. No battery, no bench supply, no FTDI
+cable.** Continuity mode puts its own tiny test current through the circuit; an
+external supply on top of that can damage the meter and will give you nonsense
+readings.
 
-**Errata-revised (2026-05-19):** DY-SV17F pin numbers below now reference the *real* pinout (right side: `TX/IO0`, `RX/IO1`, `IO2`, `IO3`, `IO4`, `IO5`, `IO6`, `IO7`, `GND`; left side: `SPK+`, `SPK-`, `DACL`, `DACR`, `V33`, `V5`, `CON3/BUSY`, `CON2`, `CON1`). For each "DY-SV17F X" probe below, touch the tinned tip of the corresponding module pin.
+Set the multimeter to continuity-beep mode. Touch the two probe tips together
+once to confirm it beeps — that is how you know the mode and the leads are good.
 
-* `VBATT` (J1.1) ↔ `GND` (J1.2) — should *not* beep. If it does, you have a short on the battery rail — find and fix it before applying power.
-* `VSYS` (Q3 drain pad) ↔ `GND` — should not beep. May read tens of kΩ on the resistance scale from the R2 pull-up and various module input pins; that's fine.
-* `VDFP` (J7 pad 2) ↔ `GND` — should not beep.
-* J1.1 ↔ Q3 source — should beep (this is the battery feed through the reverse-polarity FET).
-* Pro Mini `RAW` solder pad ↔ Q3 drain — should beep (the `VSYS` net is reached via flying wire P1 to J5 pad 12).
-* Pro Mini `VCC` solder pad ↔ J8 pad 3 — should **not** beep. (Revised 2026-07-25: wire P2 is no longer installed. A beep here means the always-on 3.3 V rail is bonded to the mode-select jumper rail, which phantom-powers the gated module through `CON2` — see the warning in Step 5.)
-* J5 pad 11 ↔ J5 pad 12 — should *not* beep (two different nets, V33 and VSYS).
-* DY-SV17F left-side pin 6 (`V5`) ↔ Q1 drain — should beep (the `VDFP` flying wire to J7 pad 2 to Q1, gated).
-* DY-SV17F right-side pin 1 (`TX/IO0`) ↔ Pro Mini D6 — should beep (wire #1 lands on J6 pad 2, which carries `TRIG_OUT`).
-* DY-SV17F left-side pin 7 (`CON3/BUSY`) ↔ Pro Mini D7 — should beep (the `BUSY_IN` flying wire to J7 pad 5).
-* DY-SV17F right-side pin 9 (`GND`, overhanging J6's bottom edge) ↔ J1.2 — should beep (the ground flying wire).
-* DY-SV17F left-side pin 5 (`V33`) ↔ J8 pad 3 — should beep (the V33 flying wire feeds the jumper rail).
-* DY-SV17F left-side pin 1 (`SPK+`) ↔ J3 pad 1 — should beep (speaker output + via J7 pad 8).
-* DY-SV17F left-side pin 2 (`SPK-`) ↔ J3 pad 2 — should beep (speaker output − via J7 pad 7).
+Where to probe: every net below is reachable at a **module pin** on the top of the
+board. Touch the probe to the exposed metal of the pin just above the module's
+plastic spacer, or to the solder cone on the underside. The board's silkscreen
+prints the pin name right next to each hole, so you can find any of these without
+counting.
 
-If anything that should beep doesn't, you have an open joint somewhere on that net — reflow the joints at both ends.
+Take the checks in order and stop at the first failure.
+
+**Group 1 — shorts. None of these may beep.**
+
+1. `J1` pin 1 ↔ `J1` pin 2 (battery + to battery −). A beep here means a short on
+   the battery rail. Find it before you connect anything.
+2. `RAW` (Pro Mini right column, pin 1) ↔ `J1` pin 2. Should not beep.
+3. `V5` (DY-SV17F left column, pin 6) ↔ `J1` pin 2. Should not beep.
+4. `VCC` (Pro Mini right column, pin 4) ↔ `J8` pin 3. **Must not beep.** This is
+   the phantom-power check. A beep means the always-on 3.3 V rail has been bonded
+   to the mode-select jumper rail, which is the 8.7 mA bug from v2. On a correct
+   v3.2 board these are separate nets and there is no way to bridge them short of
+   a solder blob.
+
+If any of the first three beep, you have a solder bridge. Work back over the SMD
+parts with magnification.
+
+**Group 2 — connections. All of these must beep.**
+
+5. `J1` pin 1 ↔ the **single leg** of `Q3` (the side of the SOT-23 with one leg,
+   not two). That leg is the drain, and it faces the battery. Battery feed into
+   the reverse-polarity FET.
+6. `RAW` (Pro Mini right column, pin 1) ↔ the `+` leg of `C1`. Both are on the
+   `/VSYS` rail, downstream of Q3.
+7. `GND` (Pro Mini right column, pin 2) ↔ `J1` pin 2.
+8. `GND` (DY-SV17F right column, pin 9) ↔ `J1` pin 2.
+9. `D6` (Pro Mini left column, pin 9) ↔ `IO0` (DY-SV17F right column, pin 1).
+   This is the trigger. If it doesn't beep the device will be silent.
+10. `D7` (Pro Mini left column, pin 10) ↔ `BUSY` (DY-SV17F left column, pin 7).
+11. `D5` (Pro Mini left column, pin 8) ↔ one end of `R1`.
+12. `V33` (DY-SV17F left column, pin 5) ↔ `J8` pin 3, `J9` pin 3, and `J10` pin 3.
+    All three jumper rails come off the module's own regulator output.
+13. `V33` (DY-SV17F left column, pin 5) ↔ `TP1` (the lone test point at roughly
+    (44, 44), labelled `V33` on the silkscreen).
+14. `SPK+` (DY-SV17F left column, pin 1) ↔ `J3` pin 1.
+15. `SPK-` (DY-SV17F left column, pin 2) ↔ `J3` pin 2.
+16. `D2` (Pro Mini left column, pin 5) ↔ `J2` pin 1.
+17. `CON1` (DY-SV17F left column, pin 9) ↔ `J8` pin 2.
+18. `CON2` (DY-SV17F left column, pin 8) ↔ `J9` pin 2.
+19. `BUSY` (DY-SV17F left column, pin 7) ↔ one end of `R3`, and the other end of
+    `R3` ↔ `J1` pin 2. That is the CON3 pull-down.
+
+**Group 3 — the mode-select states.** With the shunts fitted:
+
+20. `CON1` (DY-SV17F left pin 9) ↔ `J1` pin 2 — must beep. J8's shunt ties CON1 to
+    ground.
+21. `CON2` (DY-SV17F left pin 8) ↔ `V33` (DY-SV17F left pin 5) — must beep. J9's
+    shunt ties CON2 to the module's V33.
+22. `CON2` ↔ `J1` pin 2 — must **not** beep.
+
+If anything in Group 2 or 3 fails to beep, you have an open joint on that net.
+Reflow the pins at both ends of the failing pair and re-test. If it still fails
+after reflowing both ends, tell me which check number failed — that narrows it to
+a specific trace.
 
 #### 11.3 First power, current-limited
 
@@ -601,33 +840,73 @@ If you don't own a bench supply: use the FTDI cable from step 10 as your power s
 
 Reverse the bench supply leads on J1. Confirm current stays at zero and `VSYS` stays at 0 V (Q3 is doing its job). Restore correct polarity.
 
+**Actually run this one on a v3.2 board.** Q3 was wired backwards on v2 and v3.1 —
+drain and source swapped — which meant those boards had a reverse-polarity FET
+fitted and no reverse-polarity protection. It is fixed in v3.2 and this is the
+test that proves it. If current flows with the leads reversed, kill the supply
+immediately: Q3 is in backwards.
+
+Do this with the bench supply only, never with batteries. A reversed battery pack
+into an unprotected board is how you release the smoke.
+
 #### 11.5 Per-rail voltage check
 
 With the supply on at 4.5 V, probe with the multimeter (DC volts, 20 V range):
 
-* `VSYS` (Q3 drain pad): should read ~4.5 V minus a few millivolts.
-* `VDFP` (DY-SV17F V5 pin): should read 0 V at rest. The firmware holds D5 LOW until the button is pressed, so Q1 is off and the DY-SV17F is unpowered.
-* Pro Mini onboard power LED: lit.
+* `VSYS` (Pro Mini `RAW` pin, right column pin 1): should read ~4.5 V minus a few millivolts.
+* `VDFP` (DY-SV17F `V5` pin, left column pin 6): should read **0 V** at rest. The firmware holds D5 LOW until the button is pressed, so Q1 is off and the DY-SV17F is unpowered.
+* `V33` (`TP1`, the test point at roughly (44, 44)): should read **0 V** at rest. This is the module's own regulator output and it is dead while the module is gated off. If it reads 3.3 V with the device idle, the phantom-power split has been defeated somehow — go back to check 4 in section 11.2.
+* Pro Mini onboard power LED: lit — unless you removed it in Step 4-ter, in which case there is nothing to see and that is fine.
 
 If `VDFP` reads ~`VSYS` while the firmware should be holding D5 LOW, suspect Q4 (NPN level shifter) is installed backwards or R1 is the wrong value.
+
+Note that `VDFP` reading exactly 0 V, rather than the ~2.5 V a v2 board showed, is the whole point of the v3.2 respin. See `PINOUTS.md` → *Phantom power*.
 
 #### 11.6 First end-to-end action
 
 Plug in the speaker, button, and battery cables (or keep the bench supply if you're not on batteries yet). Press the button.
 
-Expected: ~1 s after the press (`BOOT_MS`, the module's cold-boot delay), the DY-SV17F gets its trigger pulse and starts playing `00001.mp3` through the speaker. On builds with the 10 kΩ pull-down + BUSY readout, the firmware powers down the module as soon as BUSY goes HIGH again. On the no-resistor fallback (current `main.cpp`), the firmware holds the module powered for a fixed `PLAY_DURATION_MS` (default 4 s) and then powers down. Either way, it returns to deep sleep.
+Expected: ~1 s after the press (`BOOT_MS`, the module's cold-boot delay), the DY-SV17F gets its trigger pulse and starts playing `00001.mp3` through the speaker, then the firmware powers the module down and returns to deep sleep.
+
+**The one-second gap is normal and is not a fault.** A v3.2 board genuinely
+cold-boots the DY-SV17F from 0 V on every press — that is what the phantom-power
+fix means — and the module needs about a second to bring up its regulator and read
+flash before it will listen to a trigger. If you shorten `BOOT_MS`, the trigger
+pulse lands before the module is awake and the device goes silent with no other
+symptom. That failure mode cost an afternoon; don't rediscover it.
+
+If it is silent, work through these in order and stop at the first one that's wrong:
+
+1. Is `00001.mp3` on the module's flash, with exactly five digits in the name?
+   (Step 9.) `1.mp3` and `001.mp3` do not work.
+2. Does `V5` on the module rise to ~4.5 V for a few seconds after the press? If
+   not, the power gate isn't opening — suspect Q4 or R1.
+3. Is J9's shunt on pads 2–3 and J8's on pads 1–2? Wrong mode means the trigger
+   pin does something else entirely.
+4. Is the trigger reaching `IO0` and not `IO1`? Check 9 in section 11.2.
 
 #### 11.7 Sleep current
 
-With the device idle (audio finished), the current at the battery input should be **around 150 µA** — that is the figure measured on Kelly's finished v2 board on 2026-07-25, and it works out to roughly 18–24 months on 3 × AA alkaline at 2–3 presses a day. Use the meter's 2 mA range for a stable reading; the 20 mA range can barely resolve it. **Do not press the button while the meter is on a low range** — playback pulls ~150 mA and will blow the meter's fuse.
+To measure current the meter goes **in series**, not across anything: switch the
+battery holder off, disconnect the red battery wire from J1, and bridge that gap
+with the meter — red probe to the battery wire, black probe to J1 pin 1. Then
+switch the holder on. Probing in *parallel* across the battery with the meter in
+current mode is a dead short through the meter; it blows the fuse at best.
+
+With the device idle (audio finished), the current should be **around 150 µA** —
+the figure measured on Kelly's finished v2 board on 2026-07-25 with both fixes in
+— which works out to roughly 18–24 months on 3 × AA alkaline at 2–3 presses a day.
+Use the meter's 2 mA range for a stable reading; the 20 mA range can barely
+resolve it. **Do not press the button while the meter is on a low range** —
+playback pulls ~150 mA and will blow the meter's fuse.
 
 Anything much above that means something is still drawing current it shouldn't. In order of likelihood:
 
 | Reading | Cause | Fix |
 |---|---|---|
-| ~10–15 mA | Phantom power into the gated DY-SV17F via `CON2` and/or `IO0` | Step 5 warning, and `PINOUTS.md` → *Phantom power*. This is worth ~8.7 mA on its own. |
-| +1.7 mA | Pro Mini onboard power LED | Desolder it. There is often a second LED near the D8/D9 pads on clones — check for that one too. |
+| +1.7 mA | Pro Mini onboard power LED still fitted | Step 4-ter. There is often a second LED near the D13 pad on clones — check for that one too. |
 | ~4 mA | ATmega not actually in power-down | Confirm the firmware calls `sleep_bod_disable()` and that unused pins are `INPUT_PULLUP` rather than floating. |
+| ~10–15 mA | Phantom power into the gated DY-SV17F via `CON2` and/or `IO0` | **Should be impossible on a v3.2 board** — the `/V33` split is in copper and the firmware idles D6 LOW. If you see this, check that you flashed the current `v2/firmware/main.cpp` and not an older build, then re-run check 4 in section 11.2. Background: `PINOUTS.md` → *Phantom power*. |
 
 To isolate a suspected phantom-power path without desoldering: measure the DY-SV17F's `V5` pin with the device idle. It should read **0 V**. If it reads ~2.5 V, something is feeding the module through an input pin.
 
@@ -657,12 +936,15 @@ Done.
 
 The device is acceptable when:
 
-* Pressing the dome button once produces audible playback of `00001.mp3` through the speaker, within ~250 ms.
+* No wire was soldered anywhere on the board. Every connection is a PCB trace.
+* Pressing the dome button once produces audible playback of `00001.mp3` through the speaker, about 1 s after the press (the module's genuine cold-boot time).
 * The audio plays cleanly to the end without stutter or repeat-trigger.
 * Pressing the button again during playback does not crash, double-trigger, or queue a second play (the firmware ignores presses while BUSY).
 * With the device sitting idle, the on/off switch on the battery holder cuts all current draw (you can verify by removing one battery — the device should be undamaged when reinserted regardless of orientation, courtesy of Q3 reverse-polarity protection).
 * The unit survives a 1 m drop onto carpet without losing function. Check after drop with another button press.
+* With the device idle, the DY-SV17F's `V5` pin reads **0.00 V** — not 2.5 V. This is the single measurement that proves the phantom-power path is closed.
 * The unit's idle current with the holder switch on is around 150 µA (measured: 0.15 mA on Kelly's v2 board, 2026-07-25, with both Pro Mini LEDs removed and both phantom-power paths closed).
+* With a bench supply connected backwards across J1, current stays at zero (Q3 protection actually works — it did not on v2 or v3.1).
 
 Expected on the FTDI serial monitor at 9600 baud when DEBUG is built:
 
@@ -697,7 +979,10 @@ Reference files in the repo, with their purpose:
 
 * `kicad/ahmygroin.kicad_sch` — open in KiCad 10's Eeschema to look at the schematic. The connection tables in `v2/README.md` §4 are derived from this and are accurate.
 * `kicad/ahmygroin.kicad_pcb` — open in KiCad 10's Pcbnew to look at the layout. `View → 3D Viewer` shows the populated board.
-* `kicad/fab/render-top.png` and `render-bottom.png` — KiCad-generated renders of the bare board.
+* `kicad/fab/v3.2-fitcheck-1to1.pdf` — the 1:1 print for Step 0-bis. Print at 100 %.
+* `kicad/fab/ahmygroin-v3.2-jlcpcb.zip` — the Gerber package that was sent for fabrication.
+* `kicad/fab/v3.2-top.png` — 3D render of the bare board, top view.
+* `kicad/verify_v3.py` — the pre-fab gate. If you ever change the layout, run this and get `PASS` before ordering.
 * `case/render-perspective.png`, `case/render-front.png`, `case/render-bottom.png`, `case/render-exploded.png`, `case/render-tray_top.png` — Blender Workbench renders of the finished case from various angles. The exploded view shows how the tray drops into the body.
 * `v2/README.md` — the original design rationale and net list. Read once before starting in case you want context for *why* a part exists.
 * `v2/bom.md` — the canonical BOM with Amazon ASINs.
@@ -716,25 +1001,38 @@ For firmware: at the end of step 10, the Pro Mini must be running the build prod
     D2  INPUT_PULLUP  Button input. LOW-level interrupt wakes from sleep.
     D5  OUTPUT        DY-SV17F power-gate via Q4 → Q1 high-side P-MOSFET.
                       HIGH = DY-SV17F powered; LOW = DY-SV17F off.
-    D6  OUTPUT        DY-SV17F IO0 trigger. Held HIGH at rest; pulsed LOW
-                      for ≥20 ms to trigger 00001.mp3.
+    D6  OUTPUT        DY-SV17F IO0 trigger. Held **LOW** at rest — driven
+                      HIGH only in the window between the power gate
+                      opening and the trigger pulse, then returned LOW
+                      after the gate closes. Idling it HIGH back-feeds the
+                      unpowered module through its input protection diode
+                      and costs several mA. See PINOUTS.md → Phantom power.
     D7  INPUT         DY-SV17F CON3/BUSY line. NO internal pullup — a
                       pullup here pulls CON3 HIGH during the chip's boot
-                      mode-sample and breaks mode-select. BUSY readout
-                      is therefore unavailable on the no-resistor build;
-                      playback timing uses a fixed PLAY_DURATION_MS.
+                      mode-sample and breaks mode-select. On a v3 board R3
+                      (10 kΩ) holds the line low for mode-detect, so BUSY
+                      readout is available; playback timing may still use
+                      a fixed PLAY_DURATION_MS.
 
 For electronics: at the end of step 7, the following nets must be electrically continuous and otherwise isolated:
 
-    VBATT  — J1.1 → Q3.S
-    VSYS   — Q3.D → U1.RAW, Q1.S, C1+, C2+, C3+ (test point on top silkscreen)
-    VDFP   — Q1.D → U2.V5(pin 15), C4+, C5+, C6+
-    GND    — J1.2 → ground pour on F.Cu and B.Cu (everything else)
-    BTN_IN — J2.1 → U1.D2
-    TRIG_OUT — U1.D6 → U2.IO0(right pin 1)
-    BUSY_IN  — U2.CON3/BUSY(left pin 7) → U1.D7
-    PFET_GATE — Q1.G → Q4.C → R2 (pull-up to VSYS)
-    GATE_CTRL — U1.D5 → R1 → Q4.B
+    VBATT  — J1.1 → Q3.D  (drain faces the battery; source faces the load)
+    VSYS   — Q3.S → U1.RAW (J5.1), Q1.S, C1+, C2, C3
+    VDFP   — Q1.D → U2.V5 (J6.6), C4+, C5, C6
+    V33    — U2.V33 (J6.5) → J8.3, J9.3, J10.3, TP1
+             GATED. Dies when Q1 closes. Must never touch U1.VCC.
+    GND    — J1.2 → ground pour on F.Cu and B.Cu (everything else),
+             including U1.GND on both header rows (J4.4 and J5.2)
+    BTN_IN — J2.1 → U1.D2 (J4.5)
+    TRIG_OUT  — U1.D6 (J4.9) → U2.IO0 (J7.1)
+    BUSY_IN   — U2.CON3/BUSY (J6.7) → U1.D7 (J4.10) → R3 → GND
+    Q1_GATE   — Q1.G → Q4.C → R2 (pull-up to VSYS)
+    GATE_CTRL — U1.D5 (J4.8) → R1 → Q4.B
+    CON1   — U2.CON1 (J6.9) → J8.2        (shunt to GND)
+    CON2   — U2.CON2 (J6.8) → J9.2        (shunt to V33)
+
+    U1.VCC (J5.4) — intentionally connected to NOTHING. The Pro Mini's
+    always-on 3.3 V output must not reach the gated module by any path.
 
 Continuity-check these in step 11.2.
 
@@ -752,6 +1050,7 @@ If any of those dimensions are wrong, re-run `case/build_case.py` after editing 
 
 ## Revision history
 
+* **2026-07-25 — rewritten for the v3.2 board. No flying wires.** The whole point of the v3.2 respin was that this guide should stop asking Kelly to solder wire. Rewritten: the *v3.2 status* section (which board am I holding, what changed, what to ignore); Step 0-bis (the 1:1 paper fit check, promoted to a mandatory gate); Step 1 (R3 added, position table); Step 4 (headers now belong to the modules, not the PCB — plus 4-bis on the FTDI header direction and 4-ter on removing the Pro Mini LEDs); Step 5 (silkscreen now states the jumper settings; R3 replaces the hand-soldered pull-down; the phantom-power warning becomes "already fixed in copper"); Step 7 (completely replaced — twelve flying wires became "plug both modules in", with per-column pin/net tables and a self-verifying silkscreen orientation rule); Step 11.1/11.2 (continuity checks rewritten against module pins, grouped into shorts / connections / mode-select, with the meter-safety note); 11.4 (reverse-polarity test now matters, because Q3 was backwards until v3.2); 11.5 (added the `V33` = 0 V check); 11.6 (the 1 s cold-boot delay is normal — troubleshooting ladder added); 11.7 (how to put the meter in series without shorting the pack; phantom power demoted to "should be impossible"); the firmware contract (D6 idles LOW) and the net list (V33 split, Q3 orientation, `U1.VCC` connected to nothing). — Claude.
 * 2026-05-16 — Initial ExecPlan, derived from the design in `v2/README.md`, the BOM in `v2/bom.md`, the firmware in `v2/firmware/main.cpp`, and the case in `case/build_case.py`. Twelve steps covering full assembly from bare PCB to finished unit. Written to the format defined in `PLANS.md`. — Claude (with user Kelly).
 * 2026-05-19 — Added the *Hardware erratum* section after user (Kelly) identified three bugs in the DY-SV17F footprint I designed: wrong pin count (2 × 8 instead of 2 × 9), wrong row pitch (0.7″ DFPlayer-Mini geometry, not DY-SV17F), and J7's nets misaligned with the real DY-SV17F left-side pinout (`SPK+`, `SPK-`, `DACL`, `DACR`, `V33`, `V5`, `CON3/BUSY`, `CON2`, `CON1` top-to-bottom). Also discovered `CON1/CON2/CON3` aren't routed to the module footprint at all. Errata-revised Steps 4, 5, 7, and 11.2. PCB-side header J7 is no longer populated. — Claude (with user Kelly).
 * 2026-05-19 (later, after Kelly caught a follow-on error) — Corrected my earlier claim that J6 was salvageable for the trigger signal. I had asserted "module right side plugs into J6, so `RX/IO1` lands on pad 2 (`TRIG_OUT`)" — but the module's right side is physically on the right of the natural mounting orientation, over J7, not J6. No rotation puts `IO1` on J6 pad 2. In the natural orientation, J6 pad 2 lands on the module's left pin 2 (`SPK−`) and J7 pad 2 lands on right pin 2 (`RX/IO1`) — putting 5 V on a digital input, which would damage the module. Re-revised: J6 is also not populated. All ten signals (including `IO1` to J6 pad 2) are flying wires; the DY-SV17F is mounted off-PCB. — Claude (with user Kelly).
