@@ -220,8 +220,9 @@ rewrites it:
 
 **Java:** Freerouting 2.x is compiled for **Java 25** (`class file version
 69.0`). The system JDK here is 21 and cannot start it. A local Temurin JRE 25
-is unpacked at `C:\Users\REDACTED-USER\.kicad-mcp\jre25\jdk-25.0.3+9-jre\` — nothing
-is installed system-wide. `route_v3.py` points at it directly.
+is unpacked under `%USERPROFILE%\.kicad-mcp\jre25\` — nothing is installed
+system-wide. `route_v3.py` defaults to that location; override it with the
+`ROUTE_JAVA` and `ROUTE_JAR` environment variables if yours lives elsewhere.
 
 Nets routed: VBATT, VSYS, V33, V33_MCU, VDFP, GND, SPK_P, SPK_N, TRIG_OUT,
 BUSY_IN, GATE_CTRL, BTN_IN, Q1_GATE, Q4_BASE, CON1, CON2.

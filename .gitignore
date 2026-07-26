@@ -6,6 +6,9 @@
 # submodule error. Untracked 2026-07-26.
 **/.history/
 
+# Machine-specific MCP config -- see .mcp.json.example
+.mcp.json
+
 # KiCad lock files and temp exports
 **/*.lck
 **/~*.kicad_*.lck

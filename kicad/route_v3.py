@@ -23,9 +23,16 @@ PCB  = HERE / "ahmygroin.kicad_pcb"
 DSN  = HERE / "ahmygroin.dsn"
 SES  = HERE / "ahmygroin.ses"
 
-JAVA = Path(r"C:\Users\REDACTED-USER\.kicad-mcp\jre25\jdk-25.0.3+9-jre\bin\java.exe")
-JAR  = Path(r"C:\Users\REDACTED-USER\Documents\KiCad\10.0\3rdparty\plugins"
-            r"\app_freerouting_kicad-plugin\jar\freerouting-2.2.0.jar")
+# Freerouting 2.x needs Java 25; a system JDK 21 cannot start it. Point these
+# at your own JRE and jar, or set ROUTE_JAVA / ROUTE_JAR in the environment.
+# See PINOUTS.md "Routing" for how this toolchain is set up.
+JAVA = Path(os.environ.get(
+    "ROUTE_JAVA",
+    Path.home() / r".kicad-mcp\jre25\jdk-25.0.3+9-jre\bin\java.exe"))
+JAR  = Path(os.environ.get(
+    "ROUTE_JAR",
+    Path.home() / (r"Documents\KiCad\10.0\3rdparty\plugins"
+                   r"\app_freerouting_kicad-plugin\jar\freerouting-2.2.0.jar")))
 
 PASSES = "100"
 
