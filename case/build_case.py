@@ -4,11 +4,15 @@ Run with:
     "K:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe" \
         --background --python build_case.py
 
-Outputs:
+Outputs, all written to the VERSION sub-folder so each box shape keeps its
+own model, STLs and renders side by side:
     case.blend      — the editable model
     body.stl        — main case body (top + sides, open at bottom)
     bottom.stl      — removable bottom tray (carries PCB, speaker, battery)
     foot.stl        — single foot puck; print 4× (one per corner)
+
+To start a new box shape: change VERSION, change the dimensions below, and
+run. The previous version's folder is left untouched.
 
 ASSEMBLY:
   Bottom tray is a "shelf" inside the case with PCB standoffs, speaker
@@ -25,14 +29,13 @@ ASSEMBLY:
 GEOMETRY:
     PCB                90 × 70 × 2.0 mm + ~20 mm component height
     Speaker (ADA1313)  77.8 × 77.8 × 25.5 mm
-    Button             88 mm mounting hole, 50 mm body below panel
+    Button             99 mm flange, 68.65 mm tall, 88 mm mounting hole
                        (microswitch detached and dangling on wires)
     Battery (3×AA)     48.22 × 68.95 × 17.8 mm, measured 2026-07-25.
-                       STANDS ON EDGE against the front wall so its switch
-                       face is vertical and reachable through a window in
-                       the body. Lying flat (the old arrangement) pointed
-                       that face at the ceiling, where no wall window can
-                       reach it.
+                       LIES FLAT in its rib pocket on the tray, under the
+                       PCB, switch face DOWN. A window cut through the tray
+                       exposes the switch from underneath; the case stands
+                       on 8 mm feet, so tipping it up reaches the switch.
 
 CASE SHAPE:
     Outer 200 × 130 × 90 mm rectangular prism
@@ -41,8 +44,16 @@ CASE SHAPE:
 """
 from pathlib import Path
 import math
+import struct
 import bpy
 import bmesh
+
+# ---------------------------------------------------------------------
+# Output version. Every generated file lands in case/<VERSION>/.
+# ---------------------------------------------------------------------
+HERE    = Path(__file__).parent
+VERSION = "v1-200x130x110"
+OUT_DIR = HERE / VERSION
 
 # ---------------------------------------------------------------------
 # Dimensions (mm — internal Blender units)
@@ -89,25 +100,39 @@ FOOT_H         = 8.0
 # Button — left half of the case
 BTN_CX, BTN_CY = 55.0, 65.0
 BTN_HOLE_D     = 88.0                   # mounting hole through top panel
+BTN_FLANGE_D   = 99.0                   # outer flange, measured — this is what
+                                        # hides the notches, so it bounds them
+BTN_TOTAL_H    = 68.65                  # dome tip to the end of the barrel
 BTN_BODY_D     = 78.0                   # body diameter below panel
-BTN_BODY_LEN   = 50.0                   # how far the body hangs below
+BTN_BODY_LEN   = 50.0                   # how far the body hangs below. Kept
+                                        # conservative: the whole button is
+                                        # only 68.65 mm, so 50 mm below the
+                                        # panel over-reserves whatever the
+                                        # above/below split actually is.
 BTN_REINF_R    = 50.0                   # reinforcement ring outer radius
 BTN_REINF_TH   = 6.0                    # reinforced zone thickness
-# Anti-rotation nubs on the button body: two half-circle bumps directly
-# opposite each other across the button's diameter. Each is 5.73 mm wide
-# (chord, against the button surface) and protrudes 2.7 mm radially.
-# Cut matching slots into the mounting hole so the button can't spin and
-# tangle the wires below.
-BTN_NUB_W      = 5.73                   # chord width of nub at button surface
-BTN_NUB_PROT   = 2.7                    # how far nub sticks out radially
+# Anti-rotation nubs on the button barrel: two bumps directly opposite each
+# other across the button's diameter. They hold the flange up off the panel
+# unless the hole is notched for them, so this is a fit problem, not just an
+# anti-spin nicety.
+#
+# Cut a semicircle of BTN_NUB_R centred ON the hole rim: it protrudes
+# BTN_NUB_R past the rim and is 2*BTN_NUB_R wide. The earlier values (5.73 mm
+# chord, 2.7 mm protrusion) were too small against the physical button.
+#
+# Angular position is free — the nubs are diametrically opposed, the button is
+# round, and the flange overhangs far enough to cover the notches. They sit on
+# ±Y rather than ±X because the hole edge is only 7.5 mm from the left inner
+# wall in X, which a 4 mm notch would cut to 3.5 mm; on Y there is 13.5 mm.
+BTN_NUB_D      = 5.88                   # measured nub diameter
+BTN_NUB_R      = 4.0                    # semicircular notch radius — 1.06 mm
+                                        # of slop around the nub, and it stays
+                                        # 1.5 mm inside the flange rim
 
-# PCB — right half, on standoffs from the tray.
-# PCB_CY moved 65 → 74 when the battery stood up: the battery pocket's back
-# wall lands at y=32.3, and at PCB_CY=65 the PCB's front edge was at y=30, so
-# the pocket walls (40 mm tall) ran straight through the board. At 74 the
-# board starts at y=39 with 6.7 mm to spare. Still clear of the speaker
-# (x ≤ 93.9 vs PCB x ≥ 100) and the rear corner blocks (y ≥ 114.5).
-PCB_CX, PCB_CY = 145.0, 74.0
+# PCB — right half, on standoffs from the tray. The battery lies flat
+# underneath it (21.3 mm tall including the tray) with the board at 28.5 mm,
+# so they share plan area and only the standoffs need dodging.
+PCB_CX, PCB_CY = 145.0, 65.0
 PCB_W, PCB_D, PCB_T = 90.0, 70.0, 2.0
 PCB_MOUNT_DX   = 40.0                   # ±40 mm from PCB centre (80 mm apart in X)
 PCB_MOUNT_DY   = 30.0                   # ±30 mm from PCB centre (60 mm apart in Y)
@@ -115,8 +140,10 @@ STANDOFF_OD    = 6.0
 STANDOFF_ID    = 2.7                    # M3 self-tapping (or use M3 heat-set)
 STANDOFF_H     = 25.0                   # PCB sits this far above the tray inner face
 
-# Speaker — fires DOWN through tray grille, under the button area
+# Speaker (Adafruit ADA1313) — fires DOWN through tray grille, under the
+# button area.
 SPK_CX, SPK_CY = 55.0, 65.0
+SPK_BODY_X, SPK_BODY_Y, SPK_BODY_H = 77.8, 77.8, 25.5
 # Grille pattern: concentric rings of round holes (speaker-mesh style).
 # Each tuple = (ring_radius_mm, hole_count, hole_dia_mm).
 SPK_GRILLE_RINGS = [
@@ -131,45 +158,58 @@ SPK_GRILLE_RINGS = [
 # Bolt-circle radius = 58.9 / √2 ≈ 41.65 mm.
 SPK_MOUNT_R    = 41.65                  # bolt circle radius (58.9 mm side)
 SPK_MOUNT_BOSS_OD = 6.0
-SPK_MOUNT_BOSS_ID = 2.7
+SPK_MOUNT_BOSS_ID = 2.7                 # M3 self-tapping
 SPK_MOUNT_BOSS_H  = 6.0
 
 # ---------------------------------------------------------------------
-# Battery holder — 3×AA, stands ON EDGE in the front-right corner
+# Battery holder — 3×AA, LIES FLAT on the tray with the switch face DOWN
 # ---------------------------------------------------------------------
-# Measured on the physical holder 2026-07-25. BAT_W/BAT_H are the two sides
-# of the face the switch is on; BAT_D is the thickness.
-BAT_W, BAT_H, BAT_D = 48.22, 68.95, 17.8
+# Measured on the physical holder 2026-07-25: the switch face is
+# 48.22 × 68.95 mm and the box is 17.8 mm thick.
+#
+# It lies down in the front-right of the tray, under the PCB — where it
+# already sat securely. Standing it on edge to reach the switch through a
+# side wall was built and then abandoned: it worked, but it traded away a
+# pocket that was already good for a problem that a hole in the tray solves.
+BAT_LEN, BAT_WIDTH, BAT_HEIGHT = 68.95, 48.22, 17.8   # X, Y, Z as it lies
 BAT_FIT        = 0.6                    # printed-pocket clearance per axis
-BAT_CX         = 145.0                  # same X centre as the PCB above it
-BAT_WALL_TH    = 2.5                    # pocket wall / rib thickness
-BAT_WALL_H     = 40.0                   # side + back wall height (box is 68.95)
-BAT_FRONT_RIB_H = 10.0                  # front stop; deliberately short
-BAT_WIRE_GAP   = 14.0                   # gap in the back wall for the leads
+BAT_CX, BAT_CY = 145.0, 40.0            # holder centre on the tray
+BAT_RIB_TH     = 2.5                    # rib / end-stop thickness
+BAT_RIB_H      = BAT_HEIGHT + 2.0       # ribs stand just proud of the holder
+# Central gap in each end stop. It lets the leads out, and — the reason it is
+# 20 mm and not 10 — it straddles y=35, where the two front PCB standoffs sit.
+# The end stops reach x=182.275 and the standoff at (185, 35) starts at
+# x=182.0, so without the gap they would merge into each other.
+BAT_END_GAP    = 20.0
 
-# Derived pocket geometry. The pocket starts one wall thickness behind the
-# tray's front edge, because the front rib has to sit ON the tray.
-BAT_POCKET_W = BAT_W + BAT_FIT
-BAT_POCKET_D = BAT_D + BAT_FIT
-BAT_FRONT_Y  = TRAY_MIN_Y + BAT_WALL_TH         # 11.4 — holder's front face
-BAT_BACK_Y   = BAT_FRONT_Y + BAT_POCKET_D       # 29.8 — holder's back face
+BAT_POCKET_L = BAT_LEN + BAT_FIT
+BAT_POCKET_W = BAT_WIDTH + BAT_FIT
+BAT_X0, BAT_X1 = BAT_CX - BAT_LEN/2,   BAT_CX + BAT_LEN/2     # 110.525 .. 179.475
+BAT_Y0, BAT_Y1 = BAT_CY - BAT_WIDTH/2, BAT_CY + BAT_WIDTH/2   #  15.890 ..  64.110
 
-# Switch opening, measured from the holder's own top-right corner as it is
-# seen from the front of the case (+X is to the viewer's right):
-#   horizontal   6.43 mm (right edge of opening) .. 17.2 mm (left edge)
-#   vertical     2.30 mm (top edge)              .. 12.0 mm (bottom edge)
-# → a 10.77 × 9.70 mm opening. Only the centre is needed here.
+# Switch opening, measured on the holder's switch face from its own top-right
+# corner (face held upright, viewed from the front):
+#   from the right edge  6.43 .. 17.2 mm    → a 10.77 mm span
+#   from the top edge    2.30 .. 12.0 mm    → a  9.70 mm span
+#
+# Laid down switch-face-DOWN, that face's "top" edge points -X and its "right"
+# edge points -Y. Both distances therefore measure inward from BAT_X0 / BAT_Y0.
+# The pocket is a plain rectangle, so the holder also drops in rotated 180° —
+# in which case the switch lands in the far corner and misses the hole. The
+# fix is to spin it; the soldering guide says so.
 BAT_SW_FROM_RIGHT = (6.43, 17.2)
 BAT_SW_FROM_TOP   = (2.3, 12.0)
-BAT_SW_CX = (BAT_CX + BAT_W/2) - sum(BAT_SW_FROM_RIGHT)/2   # 157.295
-BAT_SW_CZ = (BOT_TH + BAT_H)  - sum(BAT_SW_FROM_TOP)/2      # 65.300
+BAT_SW_X0 = BAT_X0 + min(BAT_SW_FROM_TOP)      # 112.825
+BAT_SW_X1 = BAT_X0 + max(BAT_SW_FROM_TOP)      # 122.525
+BAT_SW_Y0 = BAT_Y0 + min(BAT_SW_FROM_RIGHT)    #  22.320
+BAT_SW_Y1 = BAT_Y0 + max(BAT_SW_FROM_RIGHT)    #  33.090
 
-# The body window is much larger than the 10.77 × 9.70 switch opening on
-# purpose. The holder's switch face sits at y=11.4 while the outer wall face
-# is at y=0, so the switch is recessed 11.4 mm — the hole has to admit a
-# fingertip, not merely clear the lever. A shallow scallop around the outside
-# gives the finger a lead-in.
-BAT_WIN_W, BAT_WIN_H = 20.0, 14.0
+# The tray window is oversized around that opening so a fingertip reaches the
+# lever through 3.5 mm of tray, and a shallow scallop on the underside gives
+# the finger a lead-in.
+BAT_WIN_MARGIN    = 2.0
+BAT_WIN_X0, BAT_WIN_X1 = BAT_SW_X0 - BAT_WIN_MARGIN, BAT_SW_X1 + BAT_WIN_MARGIN
+BAT_WIN_Y0, BAT_WIN_Y1 = BAT_SW_Y0 - BAT_WIN_MARGIN, BAT_SW_Y1 + BAT_WIN_MARGIN
 BAT_WIN_SCALLOP   = 3.0                 # how far the lead-in oversizes it
 BAT_WIN_SCALLOP_D = 1.5                 # depth of the lead-in
 
@@ -242,6 +282,12 @@ def corner_positions():
         for y in CORNER_CY:
             yield x, y
 
+def spk_boss_positions():
+    for i in range(4):
+        angle = 2 * math.pi * i / 4 + math.pi/4
+        yield (SPK_CX + SPK_MOUNT_R * math.cos(angle),
+               SPK_CY + SPK_MOUNT_R * math.sin(angle))
+
 # ---------------------------------------------------------------------
 # BODY
 # ---------------------------------------------------------------------
@@ -267,51 +313,32 @@ def build_body():
     )
     boolean(outer, bot_open)
 
-    # Button hole through the top.
-    btn_hole = add_cyl("btn_hole", BTN_HOLE_D/2, TOP_TH * 4,
-                       BTN_CX, BTN_CY, H - TOP_TH/2)
-    boolean(outer, btn_hole)
-
-    # Anti-rotation slots — two half-circle cutouts on opposite sides of
-    # the button hole (along ±X) that the button's plastic nubs slot into.
-    # Offset the cutter circle so its near edge sits flush with the hole
-    # edge and its far edge protrudes BTN_NUB_PROT outward.
-    nub_r      = BTN_NUB_W / 2
-    nub_offset = BTN_HOLE_D/2 + BTN_NUB_PROT - nub_r
-    # Cut deep enough to clear top panel + reinforcement ring (with margin).
-    nub_depth  = TOP_TH + BTN_REINF_TH + 4.0
-    nub_cz     = H - nub_depth/2 + 0.05
-    for sign in (-1, 1):
-        nub = add_cyl(f"btn_nub_slot_{sign}", nub_r, nub_depth,
-                      BTN_CX + sign * nub_offset, BTN_CY, nub_cz)
-        boolean(outer, nub)
-
     # Reinforcement ring around the button hole (extra thickness downward).
+    #
+    # ORDER MATTERS: the ring is added BEFORE the hole and notches are cut.
+    # Unioning it afterwards silently filled the notches back in — they sit at
+    # r=44..48, the ring is solid out to r=50, and it spans the notches' whole
+    # depth, so the union restored exactly the material the notches removed.
+    # The build still reported them because check_clearances() only validates
+    # the constants, and the STL still had the arc verts from the hole rim.
     ring = add_cyl("btn_reinf", BTN_REINF_R, BTN_REINF_TH,
                    BTN_CX, BTN_CY, H - BTN_REINF_TH/2)
-    ring_hole = add_cyl("ring_hole", BTN_HOLE_D/2, BTN_REINF_TH * 2,
-                        BTN_CX, BTN_CY, H - BTN_REINF_TH/2)
-    boolean(ring, ring_hole)
     boolean(outer, ring, op='UNION')
 
-    # Battery switch window through the FRONT wall (y=0 face). The holder
-    # stands on edge behind it with its switch face toward -Y. Sized for a
-    # fingertip rather than for the lever — see BAT_WIN_W notes above.
-    win = add_cube(
-        "bat_switch_win",
-        BAT_WIN_W, WALL * 4, BAT_WIN_H,
-        BAT_SW_CX, WALL/2, BAT_SW_CZ,
-    )
-    boolean(outer, win)
-    # Shallow finger lead-in on the outside face only.
-    scallop = add_cube(
-        "bat_switch_scallop",
-        BAT_WIN_W + 2*BAT_WIN_SCALLOP,
-        BAT_WIN_SCALLOP_D * 2,
-        BAT_WIN_H + 2*BAT_WIN_SCALLOP,
-        BAT_SW_CX, 0.0, BAT_SW_CZ,
-    )
-    boolean(outer, scallop)
+    # Button hole, cut through the top panel and the ring together.
+    cut_depth = TOP_TH + BTN_REINF_TH + 4.0
+    cut_cz    = H - cut_depth/2 + 0.05
+    btn_hole = add_cyl("btn_hole", BTN_HOLE_D/2, cut_depth,
+                       BTN_CX, BTN_CY, cut_cz)
+    boolean(outer, btn_hole)
+
+    # Anti-rotation notches — a semicircle on each side of the hole for the
+    # button's two nubs, centred on the rim so the cut is exactly a half
+    # circle of BTN_NUB_R. Full depth, so the nub's length doesn't matter.
+    for sign in (-1, 1):
+        nub = add_cyl(f"btn_nub_slot_{sign}", BTN_NUB_R, cut_depth,
+                      BTN_CX, BTN_CY + sign * BTN_HOLE_D/2, cut_cz)
+        boolean(outer, nub)
 
     # Four corner attachment blocks. Each block sits on top of the lip
     # and merges into the side walls; tray screws thread into a heat-set
@@ -370,14 +397,11 @@ def build_tray():
             hole_idx += 1
 
     # Speaker mounting bosses (project UP from tray top surface)
-    for i in range(4):
-        angle = 2 * math.pi * i / 4 + math.pi/4
-        bx = SPK_CX + SPK_MOUNT_R * math.cos(angle)
-        by = SPK_CY + SPK_MOUNT_R * math.sin(angle)
+    for bx, by in spk_boss_positions():
         bz = BOT_TH + SPK_MOUNT_BOSS_H/2
-        boss = add_cyl(f"spk_boss_{i}", SPK_MOUNT_BOSS_OD/2,
+        boss = add_cyl(f"spk_boss_{bx:.0f}_{by:.0f}", SPK_MOUNT_BOSS_OD/2,
                        SPK_MOUNT_BOSS_H, bx, by, bz)
-        hole = add_cyl(f"spk_boss_hole_{i}", SPK_MOUNT_BOSS_ID/2,
+        hole = add_cyl(f"spk_boss_hole_{bx:.0f}_{by:.0f}", SPK_MOUNT_BOSS_ID/2,
                        SPK_MOUNT_BOSS_H * 2, bx, by, bz)
         boolean(boss, hole)
         boolean(tray, boss, op='UNION')
@@ -395,44 +419,47 @@ def build_tray():
             boolean(post, hole)
             boolean(tray, post, op='UNION')
 
-    # Battery pocket — the holder stands on edge, switch face toward -Y.
-    # Two full-depth side walls, a low front rib and a split back wall.
-    px0 = BAT_CX - BAT_POCKET_W/2
-    px1 = BAT_CX + BAT_POCKET_W/2
-    mid_y = (BAT_FRONT_Y + BAT_BACK_Y) / 2
-
-    for label, wx in (("bat_wall_left",  px0 - BAT_WALL_TH/2),
-                      ("bat_wall_right", px1 + BAT_WALL_TH/2)):
-        wall = add_cube(
-            label,
-            BAT_WALL_TH, BAT_POCKET_D + 2*BAT_WALL_TH, BAT_WALL_H,
-            wx, mid_y, BOT_TH + BAT_WALL_H/2,
-        )
-        boolean(tray, wall, op='UNION')
-
-    # Front rib. Kept to BAT_FRONT_RIB_H so it stops the holder sliding
-    # forward off the tray without rising anywhere near the switch, which is
-    # 65.3 mm up. Without it the holder could creep forward onto the case lip
-    # and then foul the tray when the tray is pulled back out.
-    front_rib = add_cube(
-        "bat_front_rib",
-        BAT_POCKET_W + 2*BAT_WALL_TH, BAT_WALL_TH, BAT_FRONT_RIB_H,
-        BAT_CX, BAT_FRONT_Y - BAT_WALL_TH/2, BOT_TH + BAT_FRONT_RIB_H/2,
-    )
-    boolean(tray, front_rib, op='UNION')
-
-    # Back wall, split around a central gap the battery leads pass through
-    # on their way to the JST connector at the back of the PCB.
-    back_seg = (BAT_POCKET_W + 2*BAT_WALL_TH - BAT_WIRE_GAP) / 2
+    # Battery pocket — the holder lies flat, switch face down. Two long ribs
+    # take the fore/aft load; short end stops at both ends stop it sliding
+    # along X. The stops are split rather than solid so the leads can escape
+    # at either end and so they miss the front PCB standoffs (see BAT_END_GAP).
     for sign in (-1, 1):
-        seg = add_cube(
-            f"bat_back_wall_{sign}",
-            back_seg, BAT_WALL_TH, BAT_WALL_H,
-            BAT_CX + sign * (BAT_WIRE_GAP + back_seg) / 2,
-            BAT_BACK_Y + BAT_WALL_TH/2,
-            BOT_TH + BAT_WALL_H/2,
+        rib = add_cube(
+            f"bat_rib_{sign}",
+            BAT_POCKET_L + 2*BAT_RIB_TH, BAT_RIB_TH, BAT_RIB_H,
+            BAT_CX, BAT_CY + sign * (BAT_POCKET_W + BAT_RIB_TH)/2,
+            BOT_TH + BAT_RIB_H/2,
         )
-        boolean(tray, seg, op='UNION')
+        boolean(tray, rib, op='UNION')
+
+    tab_len = (BAT_POCKET_W + 2*BAT_RIB_TH - BAT_END_GAP) / 2
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            stop = add_cube(
+                f"bat_end_{sx}_{sy}",
+                BAT_RIB_TH, tab_len, BAT_RIB_H,
+                BAT_CX + sx * (BAT_POCKET_L + BAT_RIB_TH)/2,
+                BAT_CY + sy * (BAT_END_GAP + tab_len)/2,
+                BOT_TH + BAT_RIB_H/2,
+            )
+            boolean(tray, stop, op='UNION')
+
+    # Switch window straight through the tray, under the holder's switch.
+    win = add_cube(
+        "bat_switch_win",
+        BAT_WIN_X1 - BAT_WIN_X0, BAT_WIN_Y1 - BAT_WIN_Y0, BOT_TH * 3,
+        (BAT_WIN_X0 + BAT_WIN_X1)/2, (BAT_WIN_Y0 + BAT_WIN_Y1)/2, BOT_TH/2,
+    )
+    boolean(tray, win)
+    # Finger lead-in, cut into the underside only.
+    scallop = add_cube(
+        "bat_switch_scallop",
+        BAT_WIN_X1 - BAT_WIN_X0 + 2*BAT_WIN_SCALLOP,
+        BAT_WIN_Y1 - BAT_WIN_Y0 + 2*BAT_WIN_SCALLOP,
+        BAT_WIN_SCALLOP_D * 2,
+        (BAT_WIN_X0 + BAT_WIN_X1)/2, (BAT_WIN_Y0 + BAT_WIN_Y1)/2, 0.0,
+    )
+    boolean(tray, scallop)
 
     tray.name = "case_tray"
     return tray
@@ -467,71 +494,159 @@ def build_foot():
     return foot
 
 # ---------------------------------------------------------------------
+def _rect(cx, cy, sx, sy):
+    return (cx - sx/2, cy - sy/2, cx + sx/2, cy + sy/2)
+
+def _hits(a, b):
+    """True if two plan rects overlap (touching exactly does not count)."""
+    return (a[0] < b[2] - 1e-9 and a[2] > b[0] + 1e-9
+            and a[1] < b[3] - 1e-9 and a[3] > b[1] + 1e-9)
+
+def _inside(inner, outer):
+    return (inner[0] >= outer[0] - 1e-9 and inner[1] >= outer[1] - 1e-9
+            and inner[2] <= outer[2] + 1e-9 and inner[3] <= outer[3] + 1e-9)
+
+
 def check_clearances():
     """Assert the placements that are easy to break by nudging a constant.
 
-    Every one of these fired at least once while the battery was being stood
-    up. They are cheap and they encode *why* the numbers are what they are,
-    which a bare constant cannot.
+    Every one of these fired at least once while the battery pocket was being
+    reworked. They are cheap, and they encode *why* the numbers are what they
+    are, which a bare constant cannot.
     """
     errs = []
 
-    # The pocket must sit entirely on the tray.
-    if BAT_FRONT_Y - BAT_WALL_TH < TRAY_MIN_Y - 1e-9:
-        errs.append("battery front rib overhangs the tray front edge "
-                    f"({BAT_FRONT_Y - BAT_WALL_TH:.2f} < {TRAY_MIN_Y:.2f}); "
-                    "it would foul the case lip during assembly")
+    tray_rect = _rect(W/2, D/2, TRAY_X, TRAY_Y)
+    posts = [(f"PCB standoff ({PCB_CX + ix*PCB_MOUNT_DX:.0f},"
+              f" {PCB_CY + iy*PCB_MOUNT_DY:.0f})",
+              _rect(PCB_CX + ix*PCB_MOUNT_DX, PCB_CY + iy*PCB_MOUNT_DY,
+                    STANDOFF_OD, STANDOFF_OD))
+             for ix in (-1, 1) for iy in (-1, 1)]
+    blocks = [(f"corner block ({cx:.0f}, {cy:.0f})",
+               _rect(cx, cy, CORNER_BLOCK, CORNER_BLOCK))
+              for cx, cy in corner_positions()]
 
-    # The pocket must stay clear of the PCB and its standoffs.
-    pcb_front = PCB_CY - PCB_D/2
-    pocket_back = BAT_BACK_Y + BAT_WALL_TH
-    if pocket_back > pcb_front:
-        errs.append(f"battery pocket back wall (y={pocket_back:.2f}) runs into "
-                    f"the PCB front edge (y={pcb_front:.2f})")
+    # --- battery pocket -------------------------------------------------
+    tab_len = (BAT_POCKET_W + 2*BAT_RIB_TH - BAT_END_GAP) / 2
+    if tab_len <= 0:
+        errs.append("BAT_END_GAP is wider than the pocket; no end stops left")
 
-    # Pocket must clear the four PCB standoffs in X, or in Y if it overlaps.
-    pocket_x0 = BAT_CX - BAT_POCKET_W/2 - BAT_WALL_TH
-    pocket_x1 = BAT_CX + BAT_POCKET_W/2 + BAT_WALL_TH
-    for ix in (-1, 1):
-        for iy in (-1, 1):
-            sx = PCB_CX + ix * PCB_MOUNT_DX
-            sy = PCB_CY + iy * PCB_MOUNT_DY
-            x_hit = pocket_x0 < sx + STANDOFF_OD/2 and pocket_x1 > sx - STANDOFF_OD/2
-            y_hit = (BAT_FRONT_Y - BAT_WALL_TH < sy + STANDOFF_OD/2
-                     and pocket_back > sy - STANDOFF_OD/2)
-            if x_hit and y_hit:
-                errs.append(f"battery pocket collides with PCB standoff "
-                            f"at ({sx:.1f}, {sy:.1f})")
+    pocket = []
+    for sign in (-1, 1):
+        pocket.append((f"battery rib {sign:+d}",
+                       _rect(BAT_CX, BAT_CY + sign*(BAT_POCKET_W + BAT_RIB_TH)/2,
+                             BAT_POCKET_L + 2*BAT_RIB_TH, BAT_RIB_TH)))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            pocket.append((f"battery end stop {sx:+d}{sy:+d}",
+                           _rect(BAT_CX + sx*(BAT_POCKET_L + BAT_RIB_TH)/2,
+                                 BAT_CY + sy*(BAT_END_GAP + tab_len)/2,
+                                 BAT_RIB_TH, tab_len)))
+    holder = (BAT_X0, BAT_Y0, BAT_X1, BAT_Y1)
 
-    # Pocket must clear the front corner blocks.
-    for cx in CORNER_CX:
-        bx0, bx1 = cx - CORNER_BLOCK/2, cx + CORNER_BLOCK/2
-        if pocket_x0 < bx1 and pocket_x1 > bx0:
-            errs.append(f"battery pocket overlaps the corner block at x={cx:.1f}")
+    # Nothing on the tray may hang over its edge: below z=BOT_TH the case
+    # opening is narrower than the cavity, so an overhang fouls the lip as the
+    # tray is pushed up.
+    for name, r in pocket:
+        if not _inside(r, tray_rect):
+            errs.append(f"{name} x[{r[0]:.2f} {r[2]:.2f}] y[{r[1]:.2f} {r[3]:.2f}] "
+                        f"overhangs the tray edge")
 
-    # The switch window must land on the holder's switch face, not past it.
-    sw_x0, sw_x1 = BAT_SW_CX - BAT_WIN_W/2, BAT_SW_CX + BAT_WIN_W/2
-    sw_z0, sw_z1 = BAT_SW_CZ - BAT_WIN_H/2, BAT_SW_CZ + BAT_WIN_H/2
-    box_x0, box_x1 = BAT_CX - BAT_W/2, BAT_CX + BAT_W/2
-    box_z0, box_z1 = BOT_TH, BOT_TH + BAT_H
-    if sw_x0 < box_x0 or sw_x1 > box_x1 or sw_z0 < box_z0 or sw_z1 > box_z1:
-        errs.append("switch window runs off the edge of the holder's face: "
-                    f"window x[{sw_x0:.2f} {sw_x1:.2f}] z[{sw_z0:.2f} {sw_z1:.2f}] "
-                    f"vs holder x[{box_x0:.2f} {box_x1:.2f}] z[{box_z0:.2f} {box_z1:.2f}]")
+    # The ribs stand BAT_RIB_H tall and the standoffs STANDOFF_H, so any plan
+    # overlap is a real collision. Same for the corner blocks, which reach down
+    # to z=BOT_TH.
+    for name, r in pocket + [("battery holder", holder)]:
+        for other, o in posts + blocks:
+            if _hits(r, o):
+                errs.append(f"{name} collides with {other}")
 
-    # ...and must fully expose the 10.77 × 9.70 opening itself.
-    op_x0 = box_x1 - max(BAT_SW_FROM_RIGHT)
-    op_x1 = box_x1 - min(BAT_SW_FROM_RIGHT)
-    op_z0 = box_z1 - max(BAT_SW_FROM_TOP)
-    op_z1 = box_z1 - min(BAT_SW_FROM_TOP)
-    if op_x0 < sw_x0 or op_x1 > sw_x1 or op_z0 < sw_z0 or op_z1 > sw_z1:
-        errs.append("switch window does not fully expose the switch opening")
+    # The holder has to fit under the PCB, not push it up.
+    if BOT_TH + BAT_RIB_H > BOT_TH + STANDOFF_H:
+        errs.append(f"battery ribs (top z={BOT_TH + BAT_RIB_H:.2f}) reach above "
+                    f"the PCB underside (z={BOT_TH + STANDOFF_H:.2f})")
 
-    # The holder must not foul the button body hanging down from the top.
-    btn_x0, btn_x1 = BTN_CX - BTN_BODY_D/2, BTN_CX + BTN_BODY_D/2
-    if pocket_x0 < btn_x1 and pocket_x1 > btn_x0 \
-            and BOT_TH + BAT_H > H - TOP_TH - BTN_BODY_LEN:
+    # ...and must not foul the button body hanging down from the top panel.
+    btn_body = _rect(BTN_CX, BTN_CY, BTN_BODY_D, BTN_BODY_D)
+    if _hits(holder, btn_body) and BOT_TH + BAT_HEIGHT > H - TOP_TH - BTN_BODY_LEN:
         errs.append("battery holder runs into the button body")
+
+    # --- speaker --------------------------------------------------------
+    spk = _rect(SPK_CX, SPK_CY, SPK_BODY_X, SPK_BODY_Y)
+    bosses = [(f"speaker boss ({bx:.1f}, {by:.1f})",
+               _rect(bx, by, SPK_MOUNT_BOSS_OD, SPK_MOUNT_BOSS_OD))
+              for bx, by in spk_boss_positions()]
+
+    if not _inside(spk, tray_rect):
+        errs.append(f"speaker body x[{spk[0]:.2f} {spk[2]:.2f}] "
+                    f"y[{spk[1]:.2f} {spk[3]:.2f}] overhangs the tray edge")
+    for name, r in bosses:
+        if not _inside(r, tray_rect):
+            errs.append(f"{name} overhangs the tray edge")
+        # A boss outside the speaker's own frame has nothing to bolt to.
+        if not _inside(r, spk):
+            errs.append(f"{name} lands off the speaker frame")
+    for name, r in bosses + [("speaker body", spk)]:
+        for other, o in posts + blocks + pocket:
+            if _hits(r, o):
+                errs.append(f"{name} collides with {other}")
+
+    # Grille holes must not undercut a boss.
+    for ring_r, count, hole_d in SPK_GRILLE_RINGS:
+        for i in range(count):
+            angle = 2 * math.pi * i / count
+            g = _rect(SPK_CX + ring_r * math.cos(angle),
+                      SPK_CY + ring_r * math.sin(angle), hole_d, hole_d)
+            for name, r in bosses:
+                if _hits(g, r):
+                    errs.append(f"grille hole at ring r={ring_r} cuts into {name}")
+
+    # The speaker stack has to clear the button body hanging above it.
+    spk_top = BOT_TH + SPK_MOUNT_BOSS_H + SPK_BODY_H
+    btn_bottom = H - TOP_TH - BTN_BODY_LEN
+    if _hits(spk, btn_body) and spk_top > btn_bottom:
+        errs.append(f"speaker stack (top z={spk_top:.2f}) runs into the button "
+                    f"body (bottom z={btn_bottom:.2f})")
+
+    # --- switch window --------------------------------------------------
+    win = (BAT_WIN_X0, BAT_WIN_Y0, BAT_WIN_X1, BAT_WIN_Y1)
+    opening = (BAT_SW_X0, BAT_SW_Y0, BAT_SW_X1, BAT_SW_Y1)
+    if not _inside(opening, win):
+        errs.append("tray window does not fully expose the switch opening")
+    if not _inside(win, holder):
+        errs.append(f"tray window x[{win[0]:.2f} {win[2]:.2f}] "
+                    f"y[{win[1]:.2f} {win[3]:.2f}] runs off the holder's "
+                    f"footprint x[{holder[0]:.2f} {holder[2]:.2f}] "
+                    f"y[{holder[1]:.2f} {holder[3]:.2f}]")
+    for name, r in pocket:
+        if _hits(win, r):
+            errs.append(f"tray window cuts through {name}")
+    for name, r in posts:
+        if _hits(win, r):
+            errs.append(f"tray window cuts through {name}")
+
+    # The lead-in scallop is wider than the window and only 1.5 mm deep, so it
+    # may pass under a rib — but it must not run off the tray.
+    scallop = (BAT_WIN_X0 - BAT_WIN_SCALLOP, BAT_WIN_Y0 - BAT_WIN_SCALLOP,
+               BAT_WIN_X1 + BAT_WIN_SCALLOP, BAT_WIN_Y1 + BAT_WIN_SCALLOP)
+    if not _inside(scallop, tray_rect):
+        errs.append("switch-window scallop runs off the tray edge")
+
+    # --- button ---------------------------------------------------------
+    # The notches must stay buried in the reinforcement ring (otherwise they
+    # open into thin top panel), clear the side walls, actually clear the nubs,
+    # and stay hidden under the button's flange.
+    notch_r = BTN_HOLE_D/2 + BTN_NUB_R
+    if notch_r > BTN_REINF_R:
+        errs.append(f"button nub notch (r={notch_r:.2f}) breaks out of the "
+                    f"reinforcement ring (r={BTN_REINF_R:.2f})")
+    if BTN_CY - notch_r < WALL or BTN_CY + notch_r > D - WALL:
+        errs.append(f"button nub notch (r={notch_r:.2f} on ±Y) reaches a side wall")
+    if BTN_NUB_R < BTN_NUB_D/2:
+        errs.append(f"button nub notch (r={BTN_NUB_R:.2f}) is smaller than the "
+                    f"nub itself (r={BTN_NUB_D/2:.2f})")
+    if notch_r > BTN_FLANGE_D/2:
+        errs.append(f"button nub notch (r={notch_r:.2f}) sticks out past the "
+                    f"flange (r={BTN_FLANGE_D/2:.2f}) and would be visible")
 
     if errs:
         for e in errs:
@@ -539,22 +654,96 @@ def check_clearances():
         raise SystemExit("clearance checks failed")
 
     print("clearance checks PASS")
-    print(f"  holder      x[{box_x0:.2f} {box_x1:.2f}] "
-          f"y[{BAT_FRONT_Y:.2f} {BAT_BACK_Y:.2f}] z[{box_z0:.2f} {box_z1:.2f}]")
-    print(f"  switch win  x[{sw_x0:.2f} {sw_x1:.2f}] z[{sw_z0:.2f} {sw_z1:.2f}]"
-          f"   centre ({BAT_SW_CX:.3f}, {BAT_SW_CZ:.3f})")
-    print(f"  switch recessed {BAT_FRONT_Y:.2f} mm behind the outer wall face")
-    print(f"  PCB         y[{pcb_front:.2f} {PCB_CY + PCB_D/2:.2f}]")
+    print(f"  speaker     x[{spk[0]:.2f} {spk[2]:.2f}] y[{spk[1]:.2f} {spk[3]:.2f}]"
+          f"   stack top z={spk_top:.2f} vs button bottom z={btn_bottom:.2f}")
+    print(f"  spk bosses  bolt circle r={SPK_MOUNT_R:.2f}"
+          f"   ({SPK_MOUNT_R * math.sqrt(2):.2f} mm square pattern)")
+    print(f"  holder      x[{BAT_X0:.2f} {BAT_X1:.2f}] y[{BAT_Y0:.2f} {BAT_Y1:.2f}] "
+          f"z[{BOT_TH:.2f} {BOT_TH + BAT_HEIGHT:.2f}]"
+          f"   PCB underside z={BOT_TH + STANDOFF_H:.2f}")
+    print(f"  switch      x[{BAT_SW_X0:.2f} {BAT_SW_X1:.2f}] "
+          f"y[{BAT_SW_Y0:.2f} {BAT_SW_Y1:.2f}]"
+          f"   window x[{BAT_WIN_X0:.2f} {BAT_WIN_X1:.2f}] "
+          f"y[{BAT_WIN_Y0:.2f} {BAT_WIN_Y1:.2f}]")
+    print(f"  end stops   {tab_len:.2f} mm tabs either side of a "
+          f"{BAT_END_GAP:.1f} mm lead gap")
+    print(f"  nub notches r={BTN_NUB_R:.2f} on ±Y at y="
+          f"{BTN_CY - BTN_HOLE_D/2:.2f} / {BTN_CY + BTN_HOLE_D/2:.2f}"
+          f"   ring margin {BTN_REINF_R - notch_r:.2f} mm,"
+          f" wall margin {BTN_CY - notch_r - WALL:.2f} mm,"
+          f" flange cover {BTN_FLANGE_D/2 - notch_r:.2f} mm")
+
+
+def verify_button_notches(body):
+    """Prove the notches survived into the mesh, not just into the constants.
+
+    check_clearances() validates numbers; it cannot see a later boolean
+    undoing an earlier one. The reinforcement ring did exactly that for a
+    while, and every numeric check still passed. So look for real vertices on
+    the protruding half of each notch arc — material that exists only if the
+    notch is genuinely open.
+    """
+    m = body.matrix_world
+    counts = []
+    for sign in (-1, 1):
+        nx, ny = BTN_CX, BTN_CY + sign * BTN_HOLE_D/2
+        n = 0
+        for v in body.data.vertices:
+            p = m @ v.co
+            if p.z < H - TOP_TH - 1e-6:
+                continue                       # top panel only
+            if abs(math.hypot(p.x - nx, p.y - ny) - BTN_NUB_R) > 0.15:
+                continue                       # on the notch arc
+            if math.hypot(p.x - BTN_CX, p.y - BTN_CY) < BTN_HOLE_D/2 + 0.5:
+                continue                       # protruding half, not the rim
+            n += 1
+        if n == 0:
+            raise SystemExit(
+                f"BUILD FAIL: nothing on the notch arc at ({nx:.1f}, {ny:.1f}) "
+                f"— the notch was cut and then filled back in")
+        counts.append(n)
+    print(f"  notch arcs verified: {counts[0]} / {counts[1]} verts on the "
+          f"protruding half, z >= {H - TOP_TH:.1f}")
+
+
+def verify_stl_scale(path, obj):
+    """Read the exported STL back and confirm it is in millimetres.
+
+    Slicers treat STL units as mm and will happily load a 0.2 mm case without
+    complaint, so a wrong global_scale is invisible until the print starts.
+    Parse the binary file (80-byte header, uint32 count, 50 bytes per triangle:
+    12-byte normal then three 12-byte vertices) and compare against the object.
+    """
+    b = path.read_bytes()
+    n = struct.unpack("<I", b[80:84])[0]
+    lo, hi, off = [1e30]*3, [-1e30]*3, 84
+    for _ in range(n):
+        for v in range(3):
+            xyz = struct.unpack("<3f", b[off + 12 + v*12: off + 24 + v*12])
+            for i in range(3):
+                lo[i] = min(lo[i], xyz[i])
+                hi[i] = max(hi[i], xyz[i])
+        off += 50
+    size = [hi[i] - lo[i] for i in range(3)]
+    want = list(obj.dimensions)
+    if any(abs(g - e) > 0.05 for g, e in zip(size, want)):
+        raise SystemExit(
+            f"BUILD FAIL: {path.name} exported at the wrong scale — "
+            f"{size[0]:.3f} x {size[1]:.3f} x {size[2]:.3f}, expected "
+            f"{want[0]:.3f} x {want[1]:.3f} x {want[2]:.3f} mm")
+    print(f"  {path.name:11s} {n:6d} tris   "
+          f"{size[0]:.2f} × {size[1]:.2f} × {size[2]:.2f} mm")
 
 
 def main():
     check_clearances()
     clear_scene()
     body = build_body()
+    verify_button_notches(body)
     tray = build_tray()
     foot = build_foot()
 
-    out_dir = Path(r"I:\code\ah-my-groin-button\case")
+    out_dir = OUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=str(out_dir / "case.blend"))
 
@@ -565,12 +754,16 @@ def main():
         bpy.ops.wm.stl_export(
             filepath=str(out_dir / fname),
             export_selected_objects=True,
-            global_scale=0.001,
+            # 1 model unit == 1 mm in the file. global_scale is a plain
+            # multiplier (use_scene_unit defaults off), so the 0.001 that used
+            # to be here wrote metres — body.stl came out 0.2 x 0.13 x 0.11,
+            # which a slicer loads as a speck rather than rejecting.
+            global_scale=1.0,
             forward_axis='Y',
             up_axis='Z',
             apply_modifiers=True,
         )
-        print(f"exported {fname}")
+        verify_stl_scale(out_dir / fname, obj)
 
     print(f"BUILT: body {len(body.data.vertices)} verts, "
           f"tray {len(tray.data.vertices)} verts, "

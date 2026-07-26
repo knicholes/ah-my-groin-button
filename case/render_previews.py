@@ -1,9 +1,16 @@
-"""Render preview images of the case from a few angles for visual sanity check."""
+"""Render whole-case views (perspective / top / front / bottom / exploded).
+
+Largely superseded by render_preview.py, which targets specific features with
+controlled framing. This one still earns its keep for the exploded and
+all-round shots.
+"""
 from pathlib import Path
 import math
+import sys
 import bpy
 
-OUT_DIR = Path(r"I:\code\ah-my-groin-button\case")
+sys.path.insert(0, str(Path(__file__).parent))
+from build_case import OUT_DIR  # noqa: E402
 
 bpy.ops.wm.open_mainfile(filepath=str(OUT_DIR / "case.blend"))
 
