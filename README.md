@@ -204,7 +204,9 @@ above turning out wrong.
 
 ## License
 
-None yet — which means default copyright, all rights reserved. If you want
-others to be able to use and modify this, add a `LICENSE` file (MIT and
-CERN-OHL-P are the usual choices for a project that is part firmware and part
-hardware).
+MIT — see [`LICENSE`](LICENSE). Build it, sell it, modify it, no permission
+needed; just keep the copyright notice.
+
+That covers everything in this repo: firmware, the board design, the case
+models, and the documentation. It does **not** cover any audio you load onto
+the device — no audio ships here, and whatever you add is yours to clear.
