@@ -6,13 +6,13 @@ This document is maintained in accordance with `PLANS.md` at the repository root
 
 ## Purpose / Big Picture
 
-After following this plan you will be holding a finished device: a 200 × 130 × 110 mm 3D-printed box with a large red dome button on the top face, a speaker grille and four feet on the bottom, and a small window on the front wall for the battery holder's on/off switch. Three AA batteries inside power it. When you press the button, the device plays a short audio clip ("Ah! My groin!" by default) through the speaker, then returns to deep sleep, drawing under 1 mA so a set of batteries lasts months of casual use.
+After following this plan you will be holding a finished device: a 120 × 120 × 140 mm 3D-printed box — softly rounded on every corner and edge so it's safe for small hands — with a large red dome button on the top face, a speaker grille and four feet on the bottom, and a small window on one side wall for the battery holder's on/off switch. Three AA batteries inside power it. When you press the button, the device plays a short audio clip ("Ah! My groin!" by default) through the speaker, then returns to deep sleep, drawing under 1 mA so a set of batteries lasts months of casual use.
 
 You are starting from:
 
 * a bare custom PCB fabricated to the design in `kicad/ahmygroin.kicad_pcb` (Gerber zip at `kicad/fab/ahmygroin-v3.2-jlcpcb.zip` — order this from JLCPCB or PCBWay, 5-board minimum, 2.0 mm thickness, HASL finish);
 * the kit-form parts listed in `v2/bom.md` (purchased components — Pro Mini, DY-SV17F audio module, AO3401A P-MOSFETs, MMBT3904 NPN, 0805 passives, JST-XH connectors, electrolytics, button, speaker, battery holder);
-* a 3D-printed case from `case/body.stl` and `case/bottom.stl`;
+* a 3D-printed case from `case/v2-120x120x140/` — `body.stl`, `bottom.stl`, and `foot.stl` printed **four times**;
 * the firmware source at `v2/firmware/main.cpp`;
 * the audio clip prepared as a `00001.mp3` file on your PC.
 
@@ -80,7 +80,11 @@ The repository is a small hardware project that lives on disk like this:
         kicad/ahmygroin.kicad_pcb ← the PCB layout
         kicad/fab/ahmygroin-jlcpcb.zip ← Gerber zip — this is what you ordered from JLCPCB
         case/build_case.py        ← Blender script that generates the enclosure model
-        case/body.stl, bottom.stl ← print-ready 3D models
+        case/build_v2.py          ← generates the current box
+        case/v2-120x120x140/      ← print-ready 3D models — PRINT THESE
+            body.stl, bottom.stl, foot.stl (×4)
+        case/build_case.py        ← generates the older wide box
+        case/v1-200x130x110/      ← superseded; kept so it still reproduces
         SOLDERING_GUIDE.md        ← this file
         PLANS.md                  ← rules for ExecPlans like this one
 
@@ -121,7 +125,7 @@ Tools you must have:
 * **Small Philips screwdriver** (PH0 or PH00) for the M3 case screws.
 * **FTDI cable, 3.3 V**, for programming. Search "FTDI FT232RL 3.3V USB to TTL". Make sure the cable explicitly says 3.3 V or has a 5 V / 3.3 V selector switch set to 3.3 V — applying 5 V to the Pro Mini's signal pins won't immediately destroy the ATmega328P but will stress it.
 * **USB cable** with a male micro-USB connector on one end and male USB-A on the other, to load audio onto the DY-SV17F. Most "phone-charging" cables work, but it must be a *data* cable (not charge-only). A USB-A to USB-C cable is *not* what you want — the DY-SV17F has a USB-A footprint on the board edge by design (or a micro-USB on some variants — check yours).
-* **3D printer or print service.** You need the printed case (`case/body.stl` and `case/bottom.stl`). 0.4 mm nozzle, 0.2 mm layer height, 20 % infill, PLA or PETG, four M3 brass heat-set inserts pressed into the corner bosses of the body. If you don't own a printer, services like JLC3DP or Shapeways will print both parts for ~$25.
+* **3D printer or print service.** You need the printed case from `case/v2-120x120x140/`: `body.stl` ×1, `bottom.stl` ×1, and `foot.stl` **×4** (one puck per corner — it is a separate part so no support is wasted under the tray). 0.4 mm nozzle, 0.2 mm layer height, 20 % infill, PLA or PETG, four M3 brass heat-set inserts pressed into the corner bosses of the body. That folder's `README.md` has the per-part print orientations. **Check the size your slicer reports when you load them** — `body.stl` must come in at 120 × 120 × 140 mm. If you don't own a printer, services like JLC3DP or Shapeways will print the set for ~$25.
 
 Consumables / single-use materials:
 
@@ -916,28 +920,37 @@ If you want the unit to survive a glass of water spilled near it, spray the popu
 
 ### Step 12 — Final assembly into the case
 
-The printed case is two parts: `body.stl` (the top + four sides) and `bottom.stl` (the removable tray with the speaker grille and four feet).
+The printed case is three parts, all in `case/v2-120x120x140/`: `body.stl` (the top + four sides), `bottom.stl` (the removable tray, which carries everything), and `foot.stl` — a small puck you print **four** times, one per corner. The feet are separate so they can be printed countersink-up with no support, and so the tray's underside stays flat.
+
+**How this box is arranged.** Unlike the old wide case, v2 stacks vertically: speaker on the bottom firing down through the grille, PCB and battery side by side in a middle layer, button on top with its microswitch bolted underneath. Everything except the button and its heat-set inserts mounts to the tray, so you build the whole device on the tray in your hand and then lift it into the shell as one piece.
+
+Two consequences worth knowing before you start:
+
+* The PCB does **not** sit on posts rising straight from the tray floor. Its mounting holes span 80 mm and the speaker is 77.8 mm wide, so posts can't straddle it. Instead four posts rise beside the speaker and reach inward with short arms that pass over the speaker's top face. The four bosses you screw the PCB to are on the ends of those arms, 42 mm up.
+* The PCB goes in **rotated 90° from the old case** — its long axis runs front-to-back now, not side to side. That's what makes room for the battery beside it.
 
 1. Press M3 brass heat-set inserts into the four corner bosses inside the case body. Use the soldering iron with a smooth conical tip at 250 °C, pressing each insert in vertically until its top is flush with the boss top. Let cool.
 2. Mount the EG STARTS button through the 88 mm hole in the case top, securing it with the supplied threaded ring on the inside.
-3. Screw the populated PCB to the four PCB-standoffs that project up from the bottom tray (`bottom.stl`). The PCB has its M3 mounting holes at the corners (H1–H4) which align with the tray's standoffs.
-4. Set the Adafruit speaker on the four speaker-mounting bosses around the speaker grille on the tray, secured with the small M3 hardware that came with the speaker.
-5. **Stand** the 3 × AA battery holder on edge in the walled pocket at the front-right of the tray. It does *not* lie flat — the pocket is 18.4 mm front-to-back and the holder stands 69 mm tall in it, on its narrow bottom edge.
 
-   Orientation matters and the pocket will happily accept it wrong. Hold the tray as it sits in the finished device (speaker grille down, standoffs up) and stand at the front edge — the edge with the low rib running along it:
+   The hole has two semicircular notches cut into its rim, directly opposite each other. Those clear the button's two 5.88 mm anti-rotation nubs — line the nubs up with the notches or the flange will not sit down flat on the panel. The 99 mm flange overhangs the notches by 1.5 mm, so once it's down they're hidden, and it leaves 4.5 mm of flat panel outside the flange before the rounded top rim begins.
+3. **Bolt the microswitch onto the bottom of the button barrel** using the button's own switch mount. This is different from the old case, which left it dangling on its wires — here it stays captive, which is what you want in something that gets hit repeatedly. It adds 24.62 mm below the barrel, and the case height was set around that; there is 5.8 mm of air between the bottom of the switch and the tallest part on the PCB.
+4. Set the Adafruit speaker on the four mounting bosses around the speaker grille on the tray, secured with the small M3 hardware that came with the speaker. Do this **first** — once the PCB is on its arms you can't reach the speaker screws.
+5. Screw the populated PCB to the four bosses on the ends of the support arms. The PCB's M3 corner holes (H1–H4) line up with them. Remember the 90° rotation: the board's long edge runs front-to-back.
+6. Stand the 3 × AA battery holder **on edge** in the cradle against the left wall, switch face pointing **outward at that wall**. It drops into a channel with a floor 42 mm up, a retaining wall each side and a stop at each end.
 
-   * the holder's **switch face points at you**, toward the front wall of the case, *not* toward the PCB;
-   * with it that way round, the switch sits at the **top right** of the face.
+   The cradle is a plain channel, so the holder will happily go in rotated 180° with the switch in the far corner. The check comes in step 8.
 
-   If the switch comes out bottom-left, the holder is rotated 180° — lift it and turn it over. If you can't see the switch at all, it's back-to-front. The leads exit through the gap in the middle of the pocket's back wall and run to J1 at the rear of the PCB.
-6. Plug each cable:
+   Route the leads over the cradle wall and across to J1 on the PCB.
+7. Plug each cable:
    * Battery cable from holder → J1 on the PCB.
-   * Button cable from dome → J2.
+   * Button cable from dome (now via the bolted-on microswitch) → J2.
    * Speaker cable → J3.
-7. Lift the populated tray up into the case body from below. The four corner blocks inside the body should align with the four holes in the tray.
+8. **Check the switch before closing anything up.** Look at the left wall of the tray assembly from outside. You should see the holder's on/off switch sitting square in the window, recessed 11.5 mm, with a shallow scallop around the outside so a fingertip can reach in. If you see blank holder, lift it out, spin it end-for-end and drop it back. Nothing else about the fit changes.
+9. Lift the populated tray up into the case body from below. The four corner blocks inside the body should align with the four holes in the tray.
 
-   Before screwing anything down, look through the rectangular window in the front wall. You should see the holder's switch sitting square in the middle of it, recessed about 11 mm. That recess is why the window is 20 × 14 mm rather than a tight 11 × 10 — it has to admit a fingertip, not just clear the lever. If the window shows blank plastic or the edge of the holder, the holder is in the wrong way round; go back to step 5.
-8. Drive the four M3 × 25 mm countersunk screws up through the tray's countersunk holes (which now include 8 mm of foot depth) into the heat-set inserts in the body. Tighten just until firm — over-torquing splits the plastic.
+   It goes in as one column and the clearances are real but small — the top of the battery passes 4.2 mm below the bottom of the button barrel. If it fouls, something is not seated: most likely the battery has not dropped fully onto its cradle floor, or the PCB is standing proud of its bosses.
+10. Stack a printed foot under each corner of the tray, **countersink facing the floor**. The feet printed with the countersink facing up on the build plate, so this is the flipped orientation — the wide cone should be visible from below, ready to swallow the screw head. They lift the case 8 mm so the downward-firing speaker isn't muffled.
+11. Drive the four M3 × 25 mm countersunk screws up through foot → tray → the heat-set insert in the body's corner block. The countersink is in the *foot*, not the tray; the tray has plain clearance holes. The screw length is set by that stack: 8 mm foot + 3.5 mm tray + 12 mm block = 23.5 mm. Tighten just until firm — over-torquing splits the plastic.
 
 Done.
 
@@ -949,7 +962,9 @@ The device is acceptable when:
 * Pressing the dome button once produces audible playback of `00001.mp3` through the speaker, about 1 s after the press (the module's genuine cold-boot time).
 * The audio plays cleanly to the end without stutter or repeat-trigger.
 * Pressing the button again during playback does not crash, double-trigger, or queue a second play (the firmware ignores presses while BUSY).
-* The battery holder's on/off switch can be worked with a fingertip through the front window, with the case fully assembled and no tools.
+* The battery holder's on/off switch can be worked with a fingertip through the window in the side wall, with the case fully assembled and no tools.
+* Every outside corner and edge is rounded — no sharp arris anywhere a child would grab it. Vertical corners 12 mm radius, top rim 6 mm, bottom rim 2 mm.
+* The microswitch is bolted to the button, not floating on its wires. Shake the assembled unit next to your ear: nothing rattles.
 * With the device sitting idle, the on/off switch on the battery holder cuts all current draw (you can verify by removing one battery — the device should be undamaged when reinserted regardless of orientation, courtesy of Q3 reverse-polarity protection).
 * The unit survives a 1 m drop onto carpet without losing function. Check after drop with another button press.
 * With the device idle, the DY-SV17F's `V5` pin reads **0.00 V** — not 2.5 V. This is the single measurement that proves the phantom-power path is closed.
@@ -1048,18 +1063,27 @@ Continuity-check these in step 11.2.
 
 For 3D / mechanical: at the end of step 12, the assembled device must conform to:
 
-    Outer dimensions:    200 × 130 × 90 mm
-    PCB position:        right half of tray, on 4 × M3 standoffs
-    Battery position:    right half of tray, retained by U-pocket walls
-    Speaker position:    left half of tray, on 4 × M3 mounting bosses,
-                         firing down through the grille
-    Button position:     top-centre of left half of body, 88 mm dia. hole
+    Outer dimensions:    120 × 120 × 140 mm, corners r=12, top rim r=6,
+                         bottom rim r=2
+    Speaker position:    centred on the tray, on 4 × M3 bosses on a 58.9 mm
+                         square pattern, firing down through the grille.
+                         Occupies z 9.5 → 35.0
+    PCB position:        middle layer, z 42.0, on 4 bosses carried on arms
+                         that reach in over the speaker. Long axis
+                         front-to-back (rotated 90° from v1)
+    Battery position:    on edge in the cradle against the −X wall,
+                         z 42.0 → 90.2, switch facing out through the
+                         window in that wall, recessed 11.5 mm
+    Button position:     top centre, 88 mm dia. hole with two 4 mm
+                         anti-rotation notches 180° apart. Barrel reaches
+                         to z 94.4, microswitch bolted under it to z 69.8
     Foot clearance:      8 mm of air under the speaker grille
 
 If any of those dimensions are wrong, re-run `case/build_case.py` after editing the constants at the top of the file and re-print the affected STL.
 
 ## Revision history
 
+* **2026-07-26 — retargeted onto the v2 case (`case/v2-120x120x140`).** The case went from 200 × 130 × 110 to 120 × 120 × 140: narrower footprint, taller, and stacked rather than spread — speaker on the bottom, PCB and battery side by side in a middle layer, button on top. Every outside corner and edge is now rounded (12 / 6 / 2 mm) because the device is going to small children. Step 12 rewritten: 11 steps instead of 9, the speaker now goes in *before* the PCB (its screws become unreachable afterwards), the PCB mounts rotated 90° onto bosses carried on arms that reach over the speaker, the battery stands on edge in a cradle with its switch facing out through a side wall rather than lying flat over a floor window, and the microswitch is bolted to the button instead of dangling on its wires. Also fixed: the intro, deliverables list, file tree, printer section, and the mechanical acceptance block, all of which still described the wide box; the acceptance list gained the rounding and rattle checks; and the print section now tells you to check the size your slicer reports, because until this date the STL exporter wrote metres and `body.stl` loaded as a 0.2 mm speck. Two structural facts are now recorded rather than rediscovered: the PCB's 80 mm mount span cannot straddle the 77.8 mm speaker on tray posts at any box size, and everything tray-mounted must pass up through the 103 mm bottom opening. — Claude.
 * **2026-07-25 — rewritten for the v3.2 board. No flying wires.** The whole point of the v3.2 respin was that this guide should stop asking Kelly to solder wire. Rewritten: the *v3.2 status* section (which board am I holding, what changed, what to ignore); Step 0-bis (the 1:1 paper fit check, promoted to a mandatory gate); Step 1 (R3 added, position table); Step 4 (headers now belong to the modules, not the PCB — plus 4-bis on the FTDI header direction and 4-ter on removing the Pro Mini LEDs); Step 5 (silkscreen now states the jumper settings; R3 replaces the hand-soldered pull-down; the phantom-power warning becomes "already fixed in copper"); Step 7 (completely replaced — twelve flying wires became "plug both modules in", with per-column pin/net tables and a self-verifying silkscreen orientation rule); Step 11.1/11.2 (continuity checks rewritten against module pins, grouped into shorts / connections / mode-select, with the meter-safety note); 11.4 (reverse-polarity test now matters, because Q3 was backwards until v3.2); 11.5 (added the `V33` = 0 V check); 11.6 (the 1 s cold-boot delay is normal — troubleshooting ladder added); 11.7 (how to put the meter in series without shorting the pack; phantom power demoted to "should be impossible"); the firmware contract (D6 idles LOW) and the net list (V33 split, Q3 orientation, `U1.VCC` connected to nothing). — Claude.
 * 2026-05-16 — Initial ExecPlan, derived from the design in `v2/README.md`, the BOM in `v2/bom.md`, the firmware in `v2/firmware/main.cpp`, and the case in `case/build_case.py`. Twelve steps covering full assembly from bare PCB to finished unit. Written to the format defined in `PLANS.md`. — Claude (with user Kelly).
 * 2026-05-19 — Added the *Hardware erratum* section after user (Kelly) identified three bugs in the DY-SV17F footprint I designed: wrong pin count (2 × 8 instead of 2 × 9), wrong row pitch (0.7″ DFPlayer-Mini geometry, not DY-SV17F), and J7's nets misaligned with the real DY-SV17F left-side pinout (`SPK+`, `SPK-`, `DACL`, `DACR`, `V33`, `V5`, `CON3/BUSY`, `CON2`, `CON1` top-to-bottom). Also discovered `CON1/CON2/CON3` aren't routed to the module footprint at all. Errata-revised Steps 4, 5, 7, and 11.2. PCB-side header J7 is no longer populated. — Claude (with user Kelly).
