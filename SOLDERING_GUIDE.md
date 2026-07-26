@@ -6,7 +6,7 @@ This document is maintained in accordance with `PLANS.md` at the repository root
 
 ## Purpose / Big Picture
 
-After following this plan you will be holding a finished device: a 200 × 130 × 90 mm 3D-printed box with a large red dome button on the top face and a speaker grille and four feet on the bottom. Three AA batteries inside power it. When you press the button, the device plays a short audio clip ("Ah! My groin!" by default) through the speaker, then returns to deep sleep, drawing under 1 mA so a set of batteries lasts months of casual use.
+After following this plan you will be holding a finished device: a 200 × 130 × 110 mm 3D-printed box with a large red dome button on the top face, a speaker grille and four feet on the bottom, and a small window on the front wall for the battery holder's on/off switch. Three AA batteries inside power it. When you press the button, the device plays a short audio clip ("Ah! My groin!" by default) through the speaker, then returns to deep sleep, drawing under 1 mA so a set of batteries lasts months of casual use.
 
 You are starting from:
 
@@ -922,12 +922,21 @@ The printed case is two parts: `body.stl` (the top + four sides) and `bottom.stl
 2. Mount the EG STARTS button through the 88 mm hole in the case top, securing it with the supplied threaded ring on the inside.
 3. Screw the populated PCB to the four PCB-standoffs that project up from the bottom tray (`bottom.stl`). The PCB has its M3 mounting holes at the corners (H1–H4) which align with the tray's standoffs.
 4. Set the Adafruit speaker on the four speaker-mounting bosses around the speaker grille on the tray, secured with the small M3 hardware that came with the speaker.
-5. Slot the 3 × AA battery holder into the U-shaped rib pocket on the tray. The holder's switch lever should face outward (toward the right end-wall of the tray) so it's reachable through the case.
+5. **Stand** the 3 × AA battery holder on edge in the walled pocket at the front-right of the tray. It does *not* lie flat — the pocket is 18.4 mm front-to-back and the holder stands 69 mm tall in it, on its narrow bottom edge.
+
+   Orientation matters and the pocket will happily accept it wrong. Hold the tray as it sits in the finished device (speaker grille down, standoffs up) and stand at the front edge — the edge with the low rib running along it:
+
+   * the holder's **switch face points at you**, toward the front wall of the case, *not* toward the PCB;
+   * with it that way round, the switch sits at the **top right** of the face.
+
+   If the switch comes out bottom-left, the holder is rotated 180° — lift it and turn it over. If you can't see the switch at all, it's back-to-front. The leads exit through the gap in the middle of the pocket's back wall and run to J1 at the rear of the PCB.
 6. Plug each cable:
    * Battery cable from holder → J1 on the PCB.
    * Button cable from dome → J2.
    * Speaker cable → J3.
 7. Lift the populated tray up into the case body from below. The four corner blocks inside the body should align with the four holes in the tray.
+
+   Before screwing anything down, look through the rectangular window in the front wall. You should see the holder's switch sitting square in the middle of it, recessed about 11 mm. That recess is why the window is 20 × 14 mm rather than a tight 11 × 10 — it has to admit a fingertip, not just clear the lever. If the window shows blank plastic or the edge of the holder, the holder is in the wrong way round; go back to step 5.
 8. Drive the four M3 × 25 mm countersunk screws up through the tray's countersunk holes (which now include 8 mm of foot depth) into the heat-set inserts in the body. Tighten just until firm — over-torquing splits the plastic.
 
 Done.
@@ -940,6 +949,7 @@ The device is acceptable when:
 * Pressing the dome button once produces audible playback of `00001.mp3` through the speaker, about 1 s after the press (the module's genuine cold-boot time).
 * The audio plays cleanly to the end without stutter or repeat-trigger.
 * Pressing the button again during playback does not crash, double-trigger, or queue a second play (the firmware ignores presses while BUSY).
+* The battery holder's on/off switch can be worked with a fingertip through the front window, with the case fully assembled and no tools.
 * With the device sitting idle, the on/off switch on the battery holder cuts all current draw (you can verify by removing one battery — the device should be undamaged when reinserted regardless of orientation, courtesy of Q3 reverse-polarity protection).
 * The unit survives a 1 m drop onto carpet without losing function. Check after drop with another button press.
 * With the device idle, the DY-SV17F's `V5` pin reads **0.00 V** — not 2.5 V. This is the single measurement that proves the phantom-power path is closed.

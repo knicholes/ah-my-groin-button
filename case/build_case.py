@@ -27,7 +27,12 @@ GEOMETRY:
     Speaker (ADA1313)  77.8 × 77.8 × 25.5 mm
     Button             88 mm mounting hole, 50 mm body below panel
                        (microswitch detached and dangling on wires)
-    Battery (3×AA)     68.1 × 48.4 × 18.2 mm with on/off switch
+    Battery (3×AA)     48.22 × 68.95 × 17.8 mm, measured 2026-07-25.
+                       STANDS ON EDGE against the front wall so its switch
+                       face is vertical and reachable through a window in
+                       the body. Lying flat (the old arrangement) pointed
+                       that face at the ceiling, where no wall window can
+                       reach it.
 
 CASE SHAPE:
     Outer 200 × 130 × 90 mm rectangular prism
@@ -55,6 +60,14 @@ TOP_TH         = 3.5                    # top panel thickness
 BOT_TH         = 3.5                    # bottom tray thickness
 PANEL_INSET    = 5.0                    # lip width (so tray rests on it)
 TRAY_FIT_GAP   = 0.4                    # slip-fit gap on each side
+
+# Tray footprint. Nothing mounted on the tray may extend past these edges:
+# below z=BOT_TH the case opening is narrower than the main cavity, so a part
+# hanging over the tray edge collides with the lip as the tray is pushed up
+# into place. This is what forbids sliding the battery further forward.
+TRAY_X     = W - 2*WALL - 2*PANEL_INSET - 2*TRAY_FIT_GAP
+TRAY_Y     = D - 2*WALL - 2*PANEL_INSET - 2*TRAY_FIT_GAP
+TRAY_MIN_Y = D/2 - TRAY_Y/2             # 8.9 mm — front edge of the tray
 
 # Corner attachment blocks (where bottom-tray screws go)
 CORNER_BLOCK   = 12.0                   # block width (square in plan)
@@ -88,8 +101,13 @@ BTN_REINF_TH   = 6.0                    # reinforced zone thickness
 BTN_NUB_W      = 5.73                   # chord width of nub at button surface
 BTN_NUB_PROT   = 2.7                    # how far nub sticks out radially
 
-# PCB — right half, on standoffs from the tray
-PCB_CX, PCB_CY = 145.0, 65.0
+# PCB — right half, on standoffs from the tray.
+# PCB_CY moved 65 → 74 when the battery stood up: the battery pocket's back
+# wall lands at y=32.3, and at PCB_CY=65 the PCB's front edge was at y=30, so
+# the pocket walls (40 mm tall) ran straight through the board. At 74 the
+# board starts at y=39 with 6.7 mm to spare. Still clear of the speaker
+# (x ≤ 93.9 vs PCB x ≥ 100) and the rear corner blocks (y ≥ 114.5).
+PCB_CX, PCB_CY = 145.0, 74.0
 PCB_W, PCB_D, PCB_T = 90.0, 70.0, 2.0
 PCB_MOUNT_DX   = 40.0                   # ±40 mm from PCB centre (80 mm apart in X)
 PCB_MOUNT_DY   = 30.0                   # ±30 mm from PCB centre (60 mm apart in Y)
@@ -116,12 +134,44 @@ SPK_MOUNT_BOSS_OD = 6.0
 SPK_MOUNT_BOSS_ID = 2.7
 SPK_MOUNT_BOSS_H  = 6.0
 
-# Battery — lies flat on the tray, to the right of the speaker, below the PCB
-# Y position chosen so the rib walls stay safely inside the tray edge.
-BAT_CX, BAT_CY = 145.0, 40.0            # battery centre on tray (long axis = X)
-BAT_LEN, BAT_WIDTH, BAT_HEIGHT = 68.1, 48.4, 18.2
-BAT_RIB_TH     = 2.5
-BAT_RIB_H      = BAT_HEIGHT + 2.0       # ribs slightly taller than battery
+# ---------------------------------------------------------------------
+# Battery holder — 3×AA, stands ON EDGE in the front-right corner
+# ---------------------------------------------------------------------
+# Measured on the physical holder 2026-07-25. BAT_W/BAT_H are the two sides
+# of the face the switch is on; BAT_D is the thickness.
+BAT_W, BAT_H, BAT_D = 48.22, 68.95, 17.8
+BAT_FIT        = 0.6                    # printed-pocket clearance per axis
+BAT_CX         = 145.0                  # same X centre as the PCB above it
+BAT_WALL_TH    = 2.5                    # pocket wall / rib thickness
+BAT_WALL_H     = 40.0                   # side + back wall height (box is 68.95)
+BAT_FRONT_RIB_H = 10.0                  # front stop; deliberately short
+BAT_WIRE_GAP   = 14.0                   # gap in the back wall for the leads
+
+# Derived pocket geometry. The pocket starts one wall thickness behind the
+# tray's front edge, because the front rib has to sit ON the tray.
+BAT_POCKET_W = BAT_W + BAT_FIT
+BAT_POCKET_D = BAT_D + BAT_FIT
+BAT_FRONT_Y  = TRAY_MIN_Y + BAT_WALL_TH         # 11.4 — holder's front face
+BAT_BACK_Y   = BAT_FRONT_Y + BAT_POCKET_D       # 29.8 — holder's back face
+
+# Switch opening, measured from the holder's own top-right corner as it is
+# seen from the front of the case (+X is to the viewer's right):
+#   horizontal   6.43 mm (right edge of opening) .. 17.2 mm (left edge)
+#   vertical     2.30 mm (top edge)              .. 12.0 mm (bottom edge)
+# → a 10.77 × 9.70 mm opening. Only the centre is needed here.
+BAT_SW_FROM_RIGHT = (6.43, 17.2)
+BAT_SW_FROM_TOP   = (2.3, 12.0)
+BAT_SW_CX = (BAT_CX + BAT_W/2) - sum(BAT_SW_FROM_RIGHT)/2   # 157.295
+BAT_SW_CZ = (BOT_TH + BAT_H)  - sum(BAT_SW_FROM_TOP)/2      # 65.300
+
+# The body window is much larger than the 10.77 × 9.70 switch opening on
+# purpose. The holder's switch face sits at y=11.4 while the outer wall face
+# is at y=0, so the switch is recessed 11.4 mm — the hole has to admit a
+# fingertip, not merely clear the lever. A shallow scallop around the outside
+# gives the finger a lead-in.
+BAT_WIN_W, BAT_WIN_H = 20.0, 14.0
+BAT_WIN_SCALLOP   = 3.0                 # how far the lead-in oversizes it
+BAT_WIN_SCALLOP_D = 1.5                 # depth of the lead-in
 
 # ---------------------------------------------------------------------
 # Helpers
@@ -244,6 +294,25 @@ def build_body():
     boolean(ring, ring_hole)
     boolean(outer, ring, op='UNION')
 
+    # Battery switch window through the FRONT wall (y=0 face). The holder
+    # stands on edge behind it with its switch face toward -Y. Sized for a
+    # fingertip rather than for the lever — see BAT_WIN_W notes above.
+    win = add_cube(
+        "bat_switch_win",
+        BAT_WIN_W, WALL * 4, BAT_WIN_H,
+        BAT_SW_CX, WALL/2, BAT_SW_CZ,
+    )
+    boolean(outer, win)
+    # Shallow finger lead-in on the outside face only.
+    scallop = add_cube(
+        "bat_switch_scallop",
+        BAT_WIN_W + 2*BAT_WIN_SCALLOP,
+        BAT_WIN_SCALLOP_D * 2,
+        BAT_WIN_H + 2*BAT_WIN_SCALLOP,
+        BAT_SW_CX, 0.0, BAT_SW_CZ,
+    )
+    boolean(outer, scallop)
+
     # Four corner attachment blocks. Each block sits on top of the lip
     # and merges into the side walls; tray screws thread into a heat-set
     # insert in each block from below.
@@ -272,9 +341,7 @@ def build_body():
 def build_tray():
     # Tray plate sits in the bot_open hole at z=0..BOT_TH (flush with case
     # bottom). Inner dimensions are bot_open minus a slip-fit gap.
-    tray_x = W - 2*WALL - 2*PANEL_INSET - 2*TRAY_FIT_GAP
-    tray_y = D - 2*WALL - 2*PANEL_INSET - 2*TRAY_FIT_GAP
-    tray = add_cube("tray_plate", tray_x, tray_y, BOT_TH,
+    tray = add_cube("tray_plate", TRAY_X, TRAY_Y, BOT_TH,
                     W/2, D/2, BOT_TH/2)
 
     # Plain screw clearance holes through each corner of the tray. The
@@ -328,27 +395,44 @@ def build_tray():
             boolean(post, hole)
             boolean(tray, post, op='UNION')
 
-    # Battery clip ribs — two long ribs along the battery's long edges
-    bat_min_y = BAT_CY - BAT_WIDTH/2
-    bat_max_y = BAT_CY + BAT_WIDTH/2
-    for label, ry in (("bat_rib_front", bat_min_y - BAT_RIB_TH/2),
-                       ("bat_rib_back",  bat_max_y + BAT_RIB_TH/2)):
-        rib = add_cube(
+    # Battery pocket — the holder stands on edge, switch face toward -Y.
+    # Two full-depth side walls, a low front rib and a split back wall.
+    px0 = BAT_CX - BAT_POCKET_W/2
+    px1 = BAT_CX + BAT_POCKET_W/2
+    mid_y = (BAT_FRONT_Y + BAT_BACK_Y) / 2
+
+    for label, wx in (("bat_wall_left",  px0 - BAT_WALL_TH/2),
+                      ("bat_wall_right", px1 + BAT_WALL_TH/2)):
+        wall = add_cube(
             label,
-            BAT_LEN + 2*BAT_RIB_TH, BAT_RIB_TH, BAT_RIB_H,
-            BAT_CX, ry, BOT_TH + BAT_RIB_H/2,
+            BAT_WALL_TH, BAT_POCKET_D + 2*BAT_WALL_TH, BAT_WALL_H,
+            wx, mid_y, BOT_TH + BAT_WALL_H/2,
         )
-        boolean(tray, rib, op='UNION')
-    # End wall at the right (toward case right wall) to hold the battery
-    # against sliding. Left end is open so wires can exit toward the PCB.
-    end_wall = add_cube(
-        "bat_endwall",
-        BAT_RIB_TH, BAT_WIDTH + 2*BAT_RIB_TH, BAT_RIB_H,
-        BAT_CX + BAT_LEN/2 + BAT_RIB_TH/2,
-        BAT_CY,
-        BOT_TH + BAT_RIB_H/2,
+        boolean(tray, wall, op='UNION')
+
+    # Front rib. Kept to BAT_FRONT_RIB_H so it stops the holder sliding
+    # forward off the tray without rising anywhere near the switch, which is
+    # 65.3 mm up. Without it the holder could creep forward onto the case lip
+    # and then foul the tray when the tray is pulled back out.
+    front_rib = add_cube(
+        "bat_front_rib",
+        BAT_POCKET_W + 2*BAT_WALL_TH, BAT_WALL_TH, BAT_FRONT_RIB_H,
+        BAT_CX, BAT_FRONT_Y - BAT_WALL_TH/2, BOT_TH + BAT_FRONT_RIB_H/2,
     )
-    boolean(tray, end_wall, op='UNION')
+    boolean(tray, front_rib, op='UNION')
+
+    # Back wall, split around a central gap the battery leads pass through
+    # on their way to the JST connector at the back of the PCB.
+    back_seg = (BAT_POCKET_W + 2*BAT_WALL_TH - BAT_WIRE_GAP) / 2
+    for sign in (-1, 1):
+        seg = add_cube(
+            f"bat_back_wall_{sign}",
+            back_seg, BAT_WALL_TH, BAT_WALL_H,
+            BAT_CX + sign * (BAT_WIRE_GAP + back_seg) / 2,
+            BAT_BACK_Y + BAT_WALL_TH/2,
+            BOT_TH + BAT_WALL_H/2,
+        )
+        boolean(tray, seg, op='UNION')
 
     tray.name = "case_tray"
     return tray
@@ -383,7 +467,88 @@ def build_foot():
     return foot
 
 # ---------------------------------------------------------------------
+def check_clearances():
+    """Assert the placements that are easy to break by nudging a constant.
+
+    Every one of these fired at least once while the battery was being stood
+    up. They are cheap and they encode *why* the numbers are what they are,
+    which a bare constant cannot.
+    """
+    errs = []
+
+    # The pocket must sit entirely on the tray.
+    if BAT_FRONT_Y - BAT_WALL_TH < TRAY_MIN_Y - 1e-9:
+        errs.append("battery front rib overhangs the tray front edge "
+                    f"({BAT_FRONT_Y - BAT_WALL_TH:.2f} < {TRAY_MIN_Y:.2f}); "
+                    "it would foul the case lip during assembly")
+
+    # The pocket must stay clear of the PCB and its standoffs.
+    pcb_front = PCB_CY - PCB_D/2
+    pocket_back = BAT_BACK_Y + BAT_WALL_TH
+    if pocket_back > pcb_front:
+        errs.append(f"battery pocket back wall (y={pocket_back:.2f}) runs into "
+                    f"the PCB front edge (y={pcb_front:.2f})")
+
+    # Pocket must clear the four PCB standoffs in X, or in Y if it overlaps.
+    pocket_x0 = BAT_CX - BAT_POCKET_W/2 - BAT_WALL_TH
+    pocket_x1 = BAT_CX + BAT_POCKET_W/2 + BAT_WALL_TH
+    for ix in (-1, 1):
+        for iy in (-1, 1):
+            sx = PCB_CX + ix * PCB_MOUNT_DX
+            sy = PCB_CY + iy * PCB_MOUNT_DY
+            x_hit = pocket_x0 < sx + STANDOFF_OD/2 and pocket_x1 > sx - STANDOFF_OD/2
+            y_hit = (BAT_FRONT_Y - BAT_WALL_TH < sy + STANDOFF_OD/2
+                     and pocket_back > sy - STANDOFF_OD/2)
+            if x_hit and y_hit:
+                errs.append(f"battery pocket collides with PCB standoff "
+                            f"at ({sx:.1f}, {sy:.1f})")
+
+    # Pocket must clear the front corner blocks.
+    for cx in CORNER_CX:
+        bx0, bx1 = cx - CORNER_BLOCK/2, cx + CORNER_BLOCK/2
+        if pocket_x0 < bx1 and pocket_x1 > bx0:
+            errs.append(f"battery pocket overlaps the corner block at x={cx:.1f}")
+
+    # The switch window must land on the holder's switch face, not past it.
+    sw_x0, sw_x1 = BAT_SW_CX - BAT_WIN_W/2, BAT_SW_CX + BAT_WIN_W/2
+    sw_z0, sw_z1 = BAT_SW_CZ - BAT_WIN_H/2, BAT_SW_CZ + BAT_WIN_H/2
+    box_x0, box_x1 = BAT_CX - BAT_W/2, BAT_CX + BAT_W/2
+    box_z0, box_z1 = BOT_TH, BOT_TH + BAT_H
+    if sw_x0 < box_x0 or sw_x1 > box_x1 or sw_z0 < box_z0 or sw_z1 > box_z1:
+        errs.append("switch window runs off the edge of the holder's face: "
+                    f"window x[{sw_x0:.2f} {sw_x1:.2f}] z[{sw_z0:.2f} {sw_z1:.2f}] "
+                    f"vs holder x[{box_x0:.2f} {box_x1:.2f}] z[{box_z0:.2f} {box_z1:.2f}]")
+
+    # ...and must fully expose the 10.77 × 9.70 opening itself.
+    op_x0 = box_x1 - max(BAT_SW_FROM_RIGHT)
+    op_x1 = box_x1 - min(BAT_SW_FROM_RIGHT)
+    op_z0 = box_z1 - max(BAT_SW_FROM_TOP)
+    op_z1 = box_z1 - min(BAT_SW_FROM_TOP)
+    if op_x0 < sw_x0 or op_x1 > sw_x1 or op_z0 < sw_z0 or op_z1 > sw_z1:
+        errs.append("switch window does not fully expose the switch opening")
+
+    # The holder must not foul the button body hanging down from the top.
+    btn_x0, btn_x1 = BTN_CX - BTN_BODY_D/2, BTN_CX + BTN_BODY_D/2
+    if pocket_x0 < btn_x1 and pocket_x1 > btn_x0 \
+            and BOT_TH + BAT_H > H - TOP_TH - BTN_BODY_LEN:
+        errs.append("battery holder runs into the button body")
+
+    if errs:
+        for e in errs:
+            print("CLEARANCE FAIL:", e)
+        raise SystemExit("clearance checks failed")
+
+    print("clearance checks PASS")
+    print(f"  holder      x[{box_x0:.2f} {box_x1:.2f}] "
+          f"y[{BAT_FRONT_Y:.2f} {BAT_BACK_Y:.2f}] z[{box_z0:.2f} {box_z1:.2f}]")
+    print(f"  switch win  x[{sw_x0:.2f} {sw_x1:.2f}] z[{sw_z0:.2f} {sw_z1:.2f}]"
+          f"   centre ({BAT_SW_CX:.3f}, {BAT_SW_CZ:.3f})")
+    print(f"  switch recessed {BAT_FRONT_Y:.2f} mm behind the outer wall face")
+    print(f"  PCB         y[{pcb_front:.2f} {PCB_CY + PCB_D/2:.2f}]")
+
+
 def main():
+    check_clearances()
     clear_scene()
     body = build_body()
     tray = build_tray()
