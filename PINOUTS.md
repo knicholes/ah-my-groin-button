@@ -260,21 +260,40 @@ kicad-cli drc   0 violations, 0 unconnected items
 
 ### The 1:1 paper fit check — do this before paying for fabrication
 
-`kicad/fab/v3.2-fitcheck-1to1.pdf` is the cheapest possible catch for a
-footprint bug, and footprint bugs are what killed v2.
+`kicad/fab/v3.2-fitcheck-USLetter-1to1.pdf` is the cheapest possible catch for a
+footprint bug, and footprint bugs are what killed v2. Regenerate it with:
 
-1. Print it **at 100% / "Actual size"**. Turn *off* "Fit to page", "Shrink to
-   fit", and any scaling. This matters more than anything else on this page.
-2. Measure the board outline rectangle with a ruler. It must be exactly
-   **90.0 × 70.0 mm**. If it isn't, the printer scaled it — fix that and
-   reprint before going further.
-3. Lay the physical DY-SV17F on its footprint. All 18 pins must drop onto pad
+```
+"K:\Program Files\KiCad\10.0\bin\python.exe" -u kicad\fitcheck_v3.py
+```
+
+> **The A4 trap (hit for real on 2026-07-25).** The board's page setting is A4,
+> and `kicad-cli pcb export pdf` has **no** `--page-size-mode` option — the PDF
+> inherits the board's page. Printing that A4 sheet on US Letter makes every
+> driver silently rescale, and a rescaled sheet fails in the direction of false
+> confidence: pin one lines up, and the error accumulates until the last pin is
+> a full pitch out. It reads exactly like a wrong-pitch footprint.
+> `fitcheck_v3.py` rewrites the page to US Letter so there is nothing to rescale.
+
+1. Print it **at 100% / "Actual size"** on **US Letter**. Turn *off* "Fit to
+   page", "Shrink oversized pages", and any scaling.
+2. **Measure the two 100 mm calibration bars printed on the sheet.** Both the
+   horizontal and the vertical bar must read exactly 100.0 mm — both, because
+   "fit to page" can scale the axes differently. If either is off, the sheet is
+   void; fix the print settings and reprint. Do not interpret anything else on
+   the page until these pass. The board outline is a secondary check: 90.0 × 70.0 mm.
+3. Lay each module's pin row on its **pitch ladder** (the bare tick rows near the
+   bottom: 12 @ 2.54 mm for the Pro Mini, 9 @ 2.50 mm for the DY-SV17F). These
+   are drawn independently of the footprints, which is what makes them
+   diagnostic: if a module matches its ladder but not its footprint, the
+   footprint is wrong; if it matches neither, the printout is still rescaled.
+4. Lay the physical DY-SV17F on its footprint. All 18 pins must drop onto pad
    centres, both rows at once. Pitch is 2.5 mm *metric*, row pitch 20.5 mm — a
    2.54 mm imperial footprint looks almost right and is off by 0.36 mm across
    nine pins, which is exactly the v2 failure.
-4. Lay the physical Pro Mini on its footprint. 12 pins per side, 2.54 mm pitch,
+5. Lay the physical Pro Mini on its footprint. 12 pins per side, 2.54 mm pitch,
    0.6″ (15.24 mm) row pitch.
-5. Check nothing else is drawn *underneath* either module outline. The chamfered
+6. Check nothing else is drawn *underneath* either module outline. The chamfered
    rectangles on the print are the true package bodies, not the header strips.
 
 ### Other checks
@@ -293,7 +312,7 @@ footprint bug, and footprint bugs are what killed v2.
 |---|---|
 | `ahmygroin-v3.2-jlcpcb.zip` | Upload this to JLCPCB. Gerbers + drill. |
 | `gerbers/` | The unzipped contents — 7 layers, `.drl`, `.gbrjob`. |
-| `v3.2-fitcheck-1to1.pdf` | The 1:1 paper print described above. |
+| `v3.2-fitcheck-USLetter-1to1.pdf` | The 1:1 paper print described above. US Letter, with self-verifying rulers. Built by `kicad/fitcheck_v3.py`, not by a bare `kicad-cli` call. |
 | `v3.2-top.png` | 3D render, top view. |
 
 When re-exporting Gerbers, pass the layer list explicitly — the default sweeps
