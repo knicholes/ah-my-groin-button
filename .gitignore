@@ -1,5 +1,10 @@
 # PlatformIO build artifacts
-v2/firmware/.pio/
+**/.pio/
+
+# VS Code Local History. These were committed as bare gitlinks (mode 160000)
+# with no .gitmodules entry, so every clone got two empty directories and a
+# submodule error. Untracked 2026-07-26.
+**/.history/
 
 # KiCad lock files and temp exports
 **/*.lck
